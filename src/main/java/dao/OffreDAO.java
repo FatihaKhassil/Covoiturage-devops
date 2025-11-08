@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface OffreDAO
-interface OffreDAO {
+public interface OffreDAO {
  Long create(Offre offre) throws SQLException;
  Offre findById(Long id) throws SQLException;
  List<Offre> findByFilters(String villeDepart, String villeArrivee, Date dateDepart) throws SQLException;

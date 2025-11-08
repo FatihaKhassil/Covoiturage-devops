@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface AdministrateurDAO
-interface AdministrateurDAO {
+public interface AdministrateurDAO {
  Long create(Administrateur administrateur) throws SQLException;
  Administrateur findById(Long id) throws SQLException;
  boolean delete(Long id) throws SQLException;

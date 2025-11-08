@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface NotificationDAO
-interface NotificationDAO {
+public interface NotificationDAO {
  Long create(Notification notification) throws SQLException;
  Notification findById(Long id) throws SQLException;
  List<Notification> findByUtilisateur(Long utilisateurId) throws SQLException;

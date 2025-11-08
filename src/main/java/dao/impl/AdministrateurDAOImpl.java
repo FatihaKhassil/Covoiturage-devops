@@ -88,4 +88,3 @@ public class AdministrateurDAOImpl implements AdministrateurDAO {
         return admin;
     }
 }
-Le contenu est généré par les utilisateurs et non vérifié.

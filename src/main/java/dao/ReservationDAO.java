@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface ReservationDAO
-interface ReservationDAO {
+public interface ReservationDAO {
  Long create(Reservation reservation) throws SQLException;
  Reservation findById(Long id) throws SQLException;
  List<Reservation> findByPassager(Long passagerId) throws SQLException;

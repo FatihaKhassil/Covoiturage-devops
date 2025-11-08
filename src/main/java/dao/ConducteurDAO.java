@@ -7,7 +7,7 @@ import java.util.Date;
 
 
 // Interface ConducteurDAO
-interface ConducteurDAO {
+public interface ConducteurDAO {
     Long create(Conducteur conducteur) throws SQLException;
     Conducteur findById(Long id) throws SQLException;
     boolean update(Conducteur conducteur) throws SQLException;

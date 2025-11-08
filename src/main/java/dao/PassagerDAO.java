@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface PassagerDAO
-interface PassagerDAO {
+public interface PassagerDAO {
  Long create(Passager passager) throws SQLException;
  Passager findById(Long id) throws SQLException;
  boolean update(Passager passager) throws SQLException;

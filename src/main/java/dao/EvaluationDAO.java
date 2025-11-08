@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Date;
 
 //Interface EvaluationDAO
-interface EvaluationDAO {
+public interface EvaluationDAO {
  Long create(Evaluation evaluation) throws SQLException;
  Evaluation findById(Long id) throws SQLException;
  List<Evaluation> findByEvalue(Long evalueId) throws SQLException;
