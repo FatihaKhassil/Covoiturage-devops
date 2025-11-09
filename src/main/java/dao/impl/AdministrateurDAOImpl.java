@@ -73,7 +73,21 @@ public class AdministrateurDAOImpl implements AdministrateurDAO {
         }
         return administrateurs;
     }
-    
+    public Administrateur findByEmail(String email) throws SQLException {
+        String sql = "SELECT u.* FROM utilisateur u " +
+                     "JOIN administrateur a ON u.id_utilisateur = a.id_administrateur " +
+                     "WHERE u.email = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, email);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToAdministrateur(rs);
+            }
+        }
+        return null;
+    }
     private Administrateur mapResultSetToAdministrateur(ResultSet rs) throws SQLException {
         Administrateur admin = new Administrateur();
         admin.setIdUtilisateur(rs.getLong("id_utilisateur"));

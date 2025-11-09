@@ -102,6 +102,21 @@ public class PassagerDAOImpl implements PassagerDAO {
         }
         return passagers;
     }
+    public Passager findByEmail(String email) throws SQLException {
+        String sql = "SELECT u.*, p.note_moyenne " +
+                     "FROM utilisateur u JOIN passager p ON u.id_utilisateur = p.id_passager " +
+                     "WHERE u.email = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, email);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToPassager(rs);
+            }
+        }
+        return null;
+    }
     
     private Passager mapResultSetToPassager(ResultSet rs) throws SQLException {
         Passager passager = new Passager();

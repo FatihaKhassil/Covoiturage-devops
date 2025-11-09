@@ -116,6 +116,22 @@ public class ConducteurDAOImpl implements ConducteurDAO {
         }
         return conducteurs;
     }
+    public Conducteur findByEmail(String email) throws SQLException {
+        String sql = "SELECT u.*, c.marque_vehicule, c.modele_vehicule, c.immatriculation, " +
+                     "c.nombre_places_vehicule, c.note_moyenne " +
+                     "FROM utilisateur u JOIN conducteur c ON u.id_utilisateur = c.id_conducteur " +
+                     "WHERE u.email = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, email);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                return mapResultSetToConducteur(rs);
+            }
+        }
+        return null;
+    }
     
     private Conducteur mapResultSetToConducteur(ResultSet rs) throws SQLException {
         Conducteur conducteur = new Conducteur();
