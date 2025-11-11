@@ -1,19 +1,17 @@
 package dao;
 
-import models.*;
+import models.Offre;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Date;
 
-//Interface OffreDAO
 public interface OffreDAO {
- Long create(Offre offre) throws SQLException;
- Offre findById(Long id) throws SQLException;
- List<Offre> findByFilters(String villeDepart, String villeArrivee, Date dateDepart) throws SQLException;
- List<Offre> findByConducteur(Long conducteurId) throws SQLException;
- List<Offre> findEnAttente() throws SQLException;
- boolean update(Offre offre) throws SQLException;
- boolean updateStatut(Long offreId, String statut) throws SQLException;
- boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException;
- boolean delete(Long id) throws SQLException;
+    Long create(Offre offre) throws SQLException;
+    Offre findById(Long id) throws SQLException;
+    List<Offre> findByConducteur(Long conducteurId) throws SQLException;
+    List<Offre> findEnAttente() throws SQLException;
+    boolean update(Offre offre) throws SQLException;
+    boolean updateStatut(Long offreId, String statut) throws SQLException;
+    boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException;
+    boolean delete(Long id) throws SQLException;
 }

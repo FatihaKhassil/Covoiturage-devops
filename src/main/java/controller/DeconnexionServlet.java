@@ -8,7 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 
-@WebServlet("/deconnexion")
+@WebServlet("/DeconnexionServlet")
 public class DeconnexionServlet extends HttpServlet {
     
     @Override
@@ -16,10 +16,17 @@ public class DeconnexionServlet extends HttpServlet {
             throws ServletException, IOException {
         
         HttpSession session = request.getSession(false);
+        
         if (session != null) {
             session.invalidate();
         }
         
         response.sendRedirect("connexion.jsp");
+    }
+    
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response) 
+            throws ServletException, IOException {
+        doGet(request, response);
     }
 }

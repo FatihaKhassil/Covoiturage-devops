@@ -67,7 +67,7 @@ public class ConnexionServlet extends HttpServlet {
                 HttpSession session = request.getSession();
                 session.setAttribute("utilisateur", conducteur);
                 session.setAttribute("typeUtilisateur", "conducteur");
-                response.sendRedirect("dashboardConducteur.jsp");
+                response.sendRedirect("Conducteur?page=dashboard");  // Redirection vers le nouveau dashboard
                 return;
             }
             
@@ -77,7 +77,7 @@ public class ConnexionServlet extends HttpServlet {
                 HttpSession session = request.getSession();
                 session.setAttribute("utilisateur", passager);
                 session.setAttribute("typeUtilisateur", "passager");
-                response.sendRedirect("dashboardPassager.jsp");
+                response.sendRedirect("dashboardPassager.jsp");  // Préparation pour le dashboard passager
                 return;
             }
             
@@ -87,7 +87,7 @@ public class ConnexionServlet extends HttpServlet {
                 HttpSession session = request.getSession();
                 session.setAttribute("utilisateur", admin);
                 session.setAttribute("typeUtilisateur", "administrateur");
-                response.sendRedirect("dashboardAdmin.jsp");
+                response.sendRedirect("Administrateur?page=dashboard");  // Préparation pour le dashboard admin
                 return;
             }
             
