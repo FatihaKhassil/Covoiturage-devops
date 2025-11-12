@@ -514,66 +514,99 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
         response.sendRedirect("Conducteur?page=offres");
     }
     
-    private void confirmerReservation(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String reservationIdStr = request.getParameter("reservationId");
-            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
-                Long reservationId = Long.parseLong(reservationIdStr);
-                
-                // Mettre à jour le statut à CONFIRMEE
-                boolean success = reservationDAO.updateStatut(reservationId, "CONFIRMEE");
-                
-                HttpSession session = request.getSession();
-                if (success) {
-                    session.setAttribute("success", "Réservation confirmée avec succès!");
-                } else {
-                    session.setAttribute("error", "Erreur lors de la confirmation");
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
-        }
-        response.sendRedirect("Conducteur?page=demandes");
-    }
 
-    private void refuserReservation(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String reservationIdStr = request.getParameter("reservationId");
-            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
-                Long reservationId = Long.parseLong(reservationIdStr);
-                
-                // Récupérer la réservation pour remettre les places disponibles
-                Reservation reservation = reservationDAO.findById(reservationId);
-                
-                if (reservation != null) {
-                    // Mettre à jour le statut à ANNULEE
-                    boolean success = reservationDAO.updateStatut(reservationId, "ANNULEE");
+private void confirmerReservation(HttpServletRequest request, HttpServletResponse response) 
+        throws ServletException, IOException {
+    try {
+        String reservationIdStr = request.getParameter("reservationId");
+        if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
+            Long reservationId = Long.parseLong(reservationIdStr);
+            
+            // Récupérer la réservation
+            Reservation reservation = reservationDAO.findById(reservationId);
+            
+            if (reservation != null && "EN_ATTENTE".equals(reservation.getStatut())) {
+                // Vérifier qu'il y a assez de places
+                Offre offre = reservation.getOffre();
+                if (offre.verifierDisponibilite(reservation.getNombrePlaces())) {
+                    // Mettre à jour le statut à CONFIRMEE
+                    boolean success = reservationDAO.updateStatut(reservationId, "CONFIRMEE");
                     
                     if (success) {
-                        // Remettre les places disponibles
-                        Offre offre = reservation.getOffre();
-                        Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
+                        // ✅ Maintenant on met à jour les places disponibles
+                        Integer nouvellePlaces = offre.getPlacesDisponibles() - reservation.getNombrePlaces();
                         offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
                         
                         HttpSession session = request.getSession();
-                        session.setAttribute("success", "Réservation refusée");
+                        session.setAttribute("success", "✅ Réservation confirmée avec succès!");
                     } else {
                         HttpSession session = request.getSession();
-                        session.setAttribute("error", "Erreur lors du refus");
+                        session.setAttribute("error", "❌ Erreur lors de la confirmation");
                     }
+                } else {
+                    HttpSession session = request.getSession();
+                    session.setAttribute("error", "❌ Plus assez de places disponibles");
+                }
+            } else {
+                HttpSession session = request.getSession();
+                session.setAttribute("error", "❌ Cette réservation ne peut pas être confirmée");
+            }
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+        HttpSession session = request.getSession();
+        session.setAttribute("error", "Erreur: " + e.getMessage());
+    }
+    response.sendRedirect("Conducteur?page=demandes");
+} 
+
+private void refuserReservation(HttpServletRequest request, HttpServletResponse response) 
+        throws ServletException, IOException {
+    try {
+        String reservationIdStr = request.getParameter("reservationId");
+        String motifRefus = request.getParameter("motif");
+        
+        if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
+            Long reservationId = Long.parseLong(reservationIdStr);
+            
+            // Récupérer la réservation
+            Reservation reservation = reservationDAO.findById(reservationId);
+            
+            if (reservation != null) {
+                String statutActuel = reservation.getStatut();
+                
+                // Mettre à jour le statut à ANNULEE
+                boolean success = reservationDAO.updateStatut(reservationId, "ANNULEE");
+                
+                if (success) {
+                    // ✅ Si la réservation était CONFIRMEE, remettre les places
+                    if ("CONFIRMEE".equals(statutActuel)) {
+                        Offre offre = reservation.getOffre();
+                        Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
+                        offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
+                    }
+                    // Si EN_ATTENTE, pas besoin de remettre les places (elles n'ont jamais été déduites)
+                    
+                    HttpSession session = request.getSession();
+                    String message = "❌ Réservation refusée";
+                    if (motifRefus != null && !motifRefus.trim().isEmpty()) {
+                        message += " - Motif: " + motifRefus;
+                    }
+                    session.setAttribute("success", message);
+                } else {
+                    HttpSession session = request.getSession();
+                    session.setAttribute("error", "❌ Erreur lors du refus");
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
         }
-        response.sendRedirect("Conducteur?page=demandes");
+    } catch (Exception e) {
+        e.printStackTrace();
+        HttpSession session = request.getSession();
+        session.setAttribute("error", "Erreur: " + e.getMessage());
     }
+    response.sendRedirect("Conducteur?page=demandes");
+}
+
     
     private void updateProfil(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {

@@ -10,8 +10,10 @@ public interface OffreDAO {
     Offre findById(Long id) throws SQLException;
     List<Offre> findByConducteur(Long conducteurId) throws SQLException;
     List<Offre> findEnAttente() throws SQLException;
+    List<Offre> findValidee() throws SQLException;
     boolean update(Offre offre) throws SQLException;
     boolean updateStatut(Long offreId, String statut) throws SQLException;
     boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException;
     boolean delete(Long id) throws SQLException;
+	List<Offre> findAll() throws SQLException;
 }

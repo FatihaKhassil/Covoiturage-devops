@@ -153,22 +153,22 @@
         letter-spacing: 0.5px;
     }
     
-    .status-active {
-        background: #d4edda;
-        color: #155724;
-    }
-    
-    .status-full {
+    .status-en-attente {
         background: #fff3cd;
         color: #856404;
     }
     
-    .status-completed {
+    .status-validee {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-terminee {
         background: #d1ecf1;
         color: #0c5460;
     }
     
-    .status-cancelled {
+    .status-annulee {
         background: #f8d7da;
         color: #721c24;
     }
@@ -351,11 +351,11 @@
 <!-- Statistiques -->
 <div class="stats-grid">
     <div class="stat-card active">
-        <h4>Offres Actives</h4>
+        <h4>Offres Validées</h4>
         <div class="stat-value"><%= offresActives %></div>
     </div>
     <div class="stat-card full">
-        <h4>Offres Complètes</h4>
+        <h4>En Attente</h4>
         <div class="stat-value"><%= offresCompletes %></div>
     </div>
     <div class="stat-card completed">
@@ -390,19 +390,18 @@
                 String statusClass = "";
                 String statusLabel = "";
                 
+                // Mapper les statuts de la base de données
                 if ("EN_ATTENTE".equals(statut)) {
-                    if (offre.getPlacesDisponibles() > 0) {
-                        statusClass = "status-active";
-                        statusLabel = "Active";
-                    } else {
-                        statusClass = "status-full";
-                        statusLabel = "Complète";
-                    }
+                    statusClass = "status-en-attente";
+                    statusLabel = "En Attente";
+                } else if ("VALIDEE".equals(statut)) {
+                    statusClass = "status-validee";
+                    statusLabel = "Validée";
                 } else if ("TERMINEE".equals(statut)) {
-                    statusClass = "status-completed";
+                    statusClass = "status-terminee";
                     statusLabel = "Terminée";
                 } else if ("ANNULEE".equals(statut)) {
-                    statusClass = "status-cancelled";
+                    statusClass = "status-annulee";
                     statusLabel = "Annulée";
                 }
                 
@@ -447,7 +446,7 @@
                     <% } %>
                     
                     <div class="offre-actions">
-                        <% if ("EN_ATTENTE".equals(statut)) { %>
+                        <% if ("VALIDEE".equals(statut)) { %>
                             <form method="POST" action="Conducteur" style="display: inline;">
                                 <input type="hidden" name="action" value="marquerEffectuee">
                                 <input type="hidden" name="offreId" value="<%= offre.getIdOffre() %>">
@@ -458,6 +457,8 @@
                             <button class="btn btn-cancel" onclick="cancelOffre(<%= offre.getIdOffre() %>)">
                                 ❌ Annuler
                             </button>
+                        <% } else if ("EN_ATTENTE".equals(statut)) { %>
+                            <span style="color: #856404; font-size: 14px;">⏳ En attente de validation par l'administrateur</span>
                         <% } %>
                     </div>
                 </div>
