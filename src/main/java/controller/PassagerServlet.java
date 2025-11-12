@@ -190,7 +190,7 @@ public class PassagerServlet extends HttpServlet {
                                     Passager passager) throws ServletException, IOException {
         try {
             // Récupérer toutes les offres disponibles
-            List<Offre> offres = offreDAO.findEnAttente();
+            List<Offre> offres = offreDAO.findValidee();
             
             // Filtrage (si des paramètres de recherche sont fournis)
             String villeDepart = request.getParameter("villeDepart");
@@ -235,70 +235,84 @@ public class PassagerServlet extends HttpServlet {
         request.setAttribute("page", "rechercher");
         request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
     }
+    private void afficherHistorique(HttpServletRequest request, HttpServletResponse response, 
+            Passager passager) throws ServletException, IOException {
+try {
+Long passagerId = passager.getId();
+
+if (passagerId == null) {
+request.setAttribute("error", "Erreur: ID passager non trouvé");
+request.setAttribute("reservations", new java.util.ArrayList<>());
+} else {
+// Récupérer toutes les réservations du passager
+List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
+
+// Filtrer pour n'avoir que les réservations terminées ou annulées (historique)
+List<Reservation> historiqueReservations = reservations.stream()
+.filter(r -> "TERMINEE".equals(r.getStatut()) || "ANNULEE".equals(r.getStatut()))
+.sorted((r1, r2) -> r2.getDateReservation().compareTo(r1.getDateReservation()))
+.collect(Collectors.toList());
+
+request.setAttribute("reservations", historiqueReservations);
+
+// Statistiques pour l'historique
+int nbTerminees = (int) historiqueReservations.stream()
+.filter(r -> "TERMINEE".equals(r.getStatut()))
+.count();
+int nbAnnulees = (int) historiqueReservations.stream()
+.filter(r -> "ANNULEE".equals(r.getStatut()))
+.count();
+
+request.setAttribute("nbTerminees", nbTerminees);
+request.setAttribute("nbAnnulees", nbAnnulees);
+request.setAttribute("totalHistorique", historiqueReservations.size());
+}
+} catch (Exception e) {
+e.printStackTrace();
+request.setAttribute("error", "Erreur lors du chargement de l'historique: " + e.getMessage());
+request.setAttribute("reservations", new java.util.ArrayList<>());
+}
+
+request.setAttribute("page", "historique");
+request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
+}
     
     private void afficherReservations(HttpServletRequest request, HttpServletResponse response, 
-                                      Passager passager) throws ServletException, IOException {
-        try {
-            Long passagerId = passager.getId();
-            
-            if (passagerId == null) {
-                request.setAttribute("error", "Erreur: ID passager non trouvé");
-                request.setAttribute("reservations", new java.util.ArrayList<>());
-            } else {
-                List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
-                request.setAttribute("reservations", reservations);
-                
-                // Calculer les statistiques
-                int confirmees = 0, annulees = 0, terminees = 0;
-                for (Reservation res : reservations) {
-                    String statut = res.getStatut();
-                    if ("CONFIRMEE".equals(statut)) confirmees++;
-                    else if ("ANNULEE".equals(statut)) annulees++;
-                    else if ("TERMINEE".equals(statut)) terminees++;
-                }
-                
-                request.setAttribute("nbConfirmees", confirmees);
-                request.setAttribute("nbAnnulees", annulees);
-                request.setAttribute("nbTerminees", terminees);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            request.setAttribute("error", "Erreur lors du chargement des réservations: " + e.getMessage());
-            request.setAttribute("reservations", new java.util.ArrayList<>());
-        }
-        
-        request.setAttribute("page", "reservations");
-        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
-    }
-    
-    private void afficherHistorique(HttpServletRequest request, HttpServletResponse response, 
-                                    Passager passager) throws ServletException, IOException {
-        try {
-            Long passagerId = passager.getId();
-            
-            if (passagerId == null) {
-                request.setAttribute("error", "Erreur: ID passager non trouvé");
-                request.setAttribute("historiqueReservations", new java.util.ArrayList<>());
-            } else {
-                // Récupérer seulement les réservations terminées
-                List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
-                List<Reservation> historique = reservations.stream()
-                    .filter(r -> "TERMINEE".equals(r.getStatut()))
-                    .sorted((r1, r2) -> r2.getDateReservation().compareTo(r1.getDateReservation()))
-                    .collect(Collectors.toList());
-                
-                request.setAttribute("historiqueReservations", historique);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            request.setAttribute("error", "Erreur lors du chargement de l'historique: " + e.getMessage());
-            request.setAttribute("historiqueReservations", new java.util.ArrayList<>());
-        }
-        
-        request.setAttribute("page", "historique");
-        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
-    }
-    
+            Passager passager) throws ServletException, IOException {
+try {
+Long passagerId = passager.getId();
+
+if (passagerId == null) {
+request.setAttribute("error", "Erreur: ID passager non trouvé");
+request.setAttribute("reservations", new java.util.ArrayList<>());
+} else {
+List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
+request.setAttribute("reservations", reservations);
+
+// Calculer les statistiques avec EN_ATTENTE
+int enAttente = 0, confirmees = 0, annulees = 0, terminees = 0;
+for (Reservation res : reservations) {
+String statut = res.getStatut();
+if ("EN_ATTENTE".equals(statut)) enAttente++;
+else if ("CONFIRMEE".equals(statut)) confirmees++;
+else if ("ANNULEE".equals(statut)) annulees++;
+else if ("TERMINEE".equals(statut)) terminees++;
+}
+
+request.setAttribute("nbEnAttente", enAttente);
+request.setAttribute("nbConfirmees", confirmees);
+request.setAttribute("nbAnnulees", annulees);
+request.setAttribute("nbTerminees", terminees);
+}
+} catch (Exception e) {
+e.printStackTrace();
+request.setAttribute("error", "Erreur lors du chargement des réservations: " + e.getMessage());
+request.setAttribute("reservations", new java.util.ArrayList<>());
+}
+
+request.setAttribute("page", "reservations");
+request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
+}    
     private void afficherProfil(HttpServletRequest request, HttpServletResponse response, 
                                 Passager passager) throws ServletException, IOException {
         request.setAttribute("page", "profil");
@@ -345,6 +359,13 @@ public class PassagerServlet extends HttpServlet {
                 return;
             }
             
+            // Vérifier que l'offre est validée
+            if (!"VALIDEE".equals(offre.getStatut())) {
+                session.setAttribute("error", "Cette offre n'est pas disponible pour réservation");
+                response.sendRedirect("Passager?page=rechercher");
+                return;
+            }
+            
             // Vérifier la disponibilité
             if (!offre.verifierDisponibilite(nombrePlaces)) {
                 session.setAttribute("error", "Pas assez de places disponibles");
@@ -355,13 +376,17 @@ public class PassagerServlet extends HttpServlet {
             // Calculer le prix total
             Double prixTotal = offre.getPrixParPlace() * nombrePlaces;
             
-            // Créer la réservation
+            // Créer la réservation avec statut EN_ATTENTE
             Reservation reservation = new Reservation();
             reservation.setOffre(offre);
             reservation.setPassager(passager);
             reservation.setNombrePlaces(nombrePlaces);
             reservation.setPrixTotal(prixTotal);
+<<<<<<< HEAD
             reservation.setStatut("EN_ATTENTE");
+=======
+            reservation.setStatut("EN_ATTENTE");  // ✅ CORRECTION: EN_ATTENTE au lieu de CONFIRMEE
+>>>>>>> feature/oumaima_Branch
             reservation.setDateReservation(new Date());
             reservation.setMessagePassager(messagePassager);
             
@@ -374,11 +399,8 @@ public class PassagerServlet extends HttpServlet {
             ///
             
             if (reservationId != null) {
-                // Mettre à jour les places disponibles
-                offre.mettreAJourPlaces(nombrePlaces);
-                offreDAO.update(offre);
-                
-                session.setAttribute("success", "Réservation effectuée avec succès!");
+                // NE PAS mettre à jour les places maintenant - seulement quand confirmée
+                session.setAttribute("success", "✅ Demande de réservation envoyée ! En attente de confirmation du conducteur.");
                 response.sendRedirect("Passager?page=reservations");
             } else {
                 session.setAttribute("error", "Erreur lors de la réservation");
@@ -390,8 +412,7 @@ public class PassagerServlet extends HttpServlet {
             session.setAttribute("error", "Erreur: " + e.getMessage());
             response.sendRedirect("Passager?page=rechercher");
         }
-    }
-    
+    }    
     private void annulerReservation(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         try {
@@ -403,21 +424,29 @@ public class PassagerServlet extends HttpServlet {
                 Reservation reservation = reservationDAO.findById(reservationId);
                 
                 if (reservation != null && reservation.peutEtreAnnulee()) {
+                    String statutActuel = reservation.getStatut();
+                    
                     // Annuler la réservation
                     boolean success = reservationDAO.updateStatut(reservationId, "ANNULEE");
                     
                     if (success) {
-                        // Remettre les places disponibles
-                        Offre offre = reservation.getOffre();
-                        Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
-                        offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
+                        // ✅ Remettre les places SEULEMENT si la réservation était CONFIRMEE
+                        if ("CONFIRMEE".equals(statutActuel)) {
+                            Offre offre = reservation.getOffre();
+                            Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
+                            offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
+                        }
+                        // Si EN_ATTENTE, pas besoin de remettre les places
                         
                         HttpSession session = request.getSession();
-                        session.setAttribute("success", "Réservation annulée avec succès!");
+                        session.setAttribute("success", "✅ Réservation annulée avec succès!");
                     } else {
                         HttpSession session = request.getSession();
-                        session.setAttribute("error", "Erreur lors de l'annulation");
+                        session.setAttribute("error", "❌ Erreur lors de l'annulation");
                     }
+                } else {
+                    HttpSession session = request.getSession();
+                    session.setAttribute("error", "❌ Cette réservation ne peut pas être annulée");
                 }
             }
         } catch (Exception e) {
@@ -426,8 +455,7 @@ public class PassagerServlet extends HttpServlet {
             session.setAttribute("error", "Erreur: " + e.getMessage());
         }
         response.sendRedirect("Passager?page=reservations");
-    }
-    
+    }    
     private void updateProfil(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         

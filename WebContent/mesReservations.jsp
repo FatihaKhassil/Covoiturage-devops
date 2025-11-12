@@ -3,10 +3,12 @@
 <%@ page import="models.Conducteur" %>
 <%
     List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
+    Integer nbEnAttente = (Integer) request.getAttribute("nbEnAttente");
     Integer nbConfirmees = (Integer) request.getAttribute("nbConfirmees");
     Integer nbAnnulees = (Integer) request.getAttribute("nbAnnulees");
     Integer nbTerminees = (Integer) request.getAttribute("nbTerminees");
     
+    if (nbEnAttente == null) nbEnAttente = 0;
     if (nbConfirmees == null) nbConfirmees = 0;
     if (nbAnnulees == null) nbAnnulees = 0;
     if (nbTerminees == null) nbTerminees = 0;
@@ -43,6 +45,10 @@
         left: 0;
         width: 5px;
         height: 100%;
+    }
+    
+    .reservation-card.en-attente::before {
+        background: #ffc107;
     }
     
     .reservation-card.confirmee::before {
@@ -93,6 +99,11 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+    
+    .status-en-attente {
+        background: #fff3cd;
+        color: #856404;
     }
     
     .status-confirmee {
@@ -252,11 +263,20 @@
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-card-header">
+            <h3>En Attente</h3>
+            <div class="stat-icon orange">⏳</div>
+        </div>
+        <div class="value"><%= nbEnAttente %></div>
+        <div class="label">En attente de confirmation</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-card-header">
             <h3>Confirmées</h3>
             <div class="stat-icon green">✅</div>
         </div>
         <div class="value"><%= nbConfirmees %></div>
-        <div class="label">Réservations actives</div>
+        <div class="label">Réservations confirmées</div>
     </div>
     
     <div class="stat-card">
@@ -271,7 +291,7 @@
     <div class="stat-card">
         <div class="stat-card-header">
             <h3>Annulées</h3>
-            <div class="stat-icon orange">❌</div>
+            <div class="stat-icon red">❌</div>
         </div>
         <div class="value"><%= nbAnnulees %></div>
         <div class="label">Réservations annulées</div>
@@ -301,7 +321,11 @@
                 String statusLabel = "";
                 String cardClass = "";
                 
-                if ("CONFIRMEE".equals(statut)) {
+                if ("EN_ATTENTE".equals(statut)) {
+                    statusClass = "status-en-attente";
+                    statusLabel = "En Attente";
+                    cardClass = "en-attente";
+                } else if ("CONFIRMEE".equals(statut)) {
                     statusClass = "status-confirmee";
                     statusLabel = "Confirmée";
                     cardClass = "confirmee";
@@ -344,15 +368,15 @@
                         <div class="detail-item">
                             <span class="detail-label">Conducteur</span>
                             <span class="detail-value">
-    <% 
-        Conducteur conducteur = reservation.getOffre().getConducteur();
-        if (conducteur != null && conducteur.getPrenom() != null) {
-            out.print(conducteur.getPrenom());
-        } else {
-            out.print("N/A");
-        }
-    %>
-</span>
+                                <% 
+                                    Conducteur conducteur = reservation.getOffre().getConducteur();
+                                    if (conducteur != null && conducteur.getPrenom() != null) {
+                                        out.print(conducteur.getPrenom());
+                                    } else {
+                                        out.print("N/A");
+                                    }
+                                %>
+                            </span>
                         </div>
                     </div>
                     
@@ -362,7 +386,14 @@
                         </div>
                     <% } %>
                     
-                    <% if ("CONFIRMEE".equals(statut)) { %>
+                    <% if ("EN_ATTENTE".equals(statut)) { %>
+                        <div style="margin-top: 15px; display: flex; align-items: center; gap: 15px;">
+                            <span style="color: #856404; font-size: 14px;">⏳ En attente de confirmation du conducteur</span>
+                            <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
+                                ❌ Annuler
+                            </button>
+                        </div>
+                    <% } else if ("CONFIRMEE".equals(statut)) { %>
                         <div style="margin-top: 15px;">
                             <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
                                 ❌ Annuler la Réservation

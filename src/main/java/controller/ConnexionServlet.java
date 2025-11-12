@@ -87,7 +87,7 @@ public class ConnexionServlet extends HttpServlet {
                 HttpSession session = request.getSession();
                 session.setAttribute("utilisateur", admin);
                 session.setAttribute("typeUtilisateur", "administrateur");
-                response.sendRedirect("Administrateur?page=dashboard");  // Préparation pour le dashboard admin
+                response.sendRedirect("dashboardAdmin.jsp");  // Préparation pour le dashboard admin
                 return;
             }
             

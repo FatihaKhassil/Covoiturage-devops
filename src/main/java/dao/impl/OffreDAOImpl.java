@@ -5,14 +5,13 @@ import models.Offre;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.sql.Connection;
 
 public class OffreDAOImpl implements OffreDAO {
-	private Connection connection;
+    private Connection connection;
 
-	public OffreDAOImpl(Connection connection) {
-	    this.connection = connection;
-	}
+    public OffreDAOImpl(Connection connection) {
+        this.connection = connection;
+    }
     
     @Override
     public Long create(Offre offre) throws SQLException {
@@ -61,6 +60,20 @@ public class OffreDAOImpl implements OffreDAO {
     }
     
     @Override
+    public List<Offre> findAll() throws SQLException {
+        List<Offre> offres = new ArrayList<>();
+        String sql = "SELECT * FROM offre ORDER BY date_publication DESC";
+
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                offres.add(mapResultSetToOffre(rs));
+            }
+        }
+        return offres;
+    }
+
+    @Override
     public List<Offre> findByConducteur(Long conducteurId) throws SQLException {
         List<Offre> offres = new ArrayList<>();
         String sql = "SELECT * FROM offre WHERE id_conducteur = ? ORDER BY date_depart DESC, heure_depart DESC";
@@ -80,6 +93,21 @@ public class OffreDAOImpl implements OffreDAO {
     public List<Offre> findEnAttente() throws SQLException {
         List<Offre> offres = new ArrayList<>();
         String sql = "SELECT * FROM offre WHERE statut = 'EN_ATTENTE' ORDER BY date_publication DESC";
+        
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            
+            while (rs.next()) {
+                offres.add(mapResultSetToOffre(rs));
+            }
+        }
+        return offres;
+    }
+    
+    @Override
+    public List<Offre> findValidee() throws SQLException {
+        List<Offre> offres = new ArrayList<>();
+        String sql = "SELECT * FROM offre WHERE statut = 'VALIDEE' ORDER BY date_publication DESC";
         
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -115,6 +143,13 @@ public class OffreDAOImpl implements OffreDAO {
         }
     }
     
+    /**
+     * Met à jour le statut d'une offre
+     * @param offreId L'ID de l'offre
+     * @param statut Le nouveau statut (EN_ATTENTE, VALIDEE, TERMINEE, ANNULEE)
+     * @return true si la mise à jour a réussi, false sinon
+     * @throws SQLException si une erreur survient
+     */
     @Override
     public boolean updateStatut(Long offreId, String statut) throws SQLException {
         String sql = "UPDATE offre SET statut = ? WHERE id_offre = ?";
@@ -123,7 +158,19 @@ public class OffreDAOImpl implements OffreDAO {
             stmt.setString(1, statut);
             stmt.setLong(2, offreId);
             
-            return stmt.executeUpdate() > 0;
+            int rowsAffected = stmt.executeUpdate();
+            
+            if (rowsAffected == 0) {
+                System.err.println("Aucune offre trouvée avec l'ID: " + offreId);
+                return false;
+            }
+            
+            System.out.println("Statut de l'offre " + offreId + " mis à jour: " + statut);
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Erreur lors de la mise à jour du statut de l'offre " + offreId);
+            e.printStackTrace();
+            throw e;
         }
     }
     
@@ -139,6 +186,21 @@ public class OffreDAOImpl implements OffreDAO {
         }
     }
     
+    /**
+     * Marque une offre comme effectuée et met à jour son statut
+     * @param offreId L'ID de l'offre
+     * @return true si la mise à jour a réussi
+     * @throws SQLException si une erreur survient
+     */
+    public boolean marquerCommeEffectuee(Long offreId) throws SQLException {
+        String sql = "UPDATE offre SET est_effectuee = true, statut = 'TERMINEE' WHERE id_offre = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, offreId);
+            return stmt.executeUpdate() > 0;
+        }
+    }
+    
     @Override
     public boolean delete(Long id) throws SQLException {
         String sql = "DELETE FROM offre WHERE id_offre = ?";
@@ -149,6 +211,9 @@ public class OffreDAOImpl implements OffreDAO {
         }
     }
     
+    /**
+     * Mappe un ResultSet vers un objet Offre
+     */
     private Offre mapResultSetToOffre(ResultSet rs) throws SQLException {
         Offre offre = new Offre();
         offre.setIdOffre(rs.getLong("id_offre"));
