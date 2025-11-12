@@ -167,7 +167,7 @@ public class ReservationDAOImpl implements ReservationDAO {
         }
         return reservations;
     }
-    
+    @Override
     public List<Reservation> findByConducteur(Long conducteurId) throws SQLException {
         List<Reservation> reservations = new ArrayList<>();
         String sql = "SELECT r.*, " +
@@ -309,7 +309,12 @@ public class ReservationDAOImpl implements ReservationDAO {
         reservation.setStatut(rs.getString("statut"));
         reservation.setDateReservation(rs.getTimestamp("date_reservation"));
         reservation.setMessagePassager(rs.getString("message_passager"));
-
+        try {
+            String message = rs.getString("message_passager");
+            reservation.setMessagePassager(message);
+        } catch (SQLException e) {
+            // La colonne n'existe pas, on l'ignore
+        }
         // Mapper le passager
         Passager passager = new Passager();
         passager.setIdUtilisateur(rs.getLong("id_passager"));
@@ -349,7 +354,14 @@ public class ReservationDAOImpl implements ReservationDAO {
         offre.setDatePublication(rs.getTimestamp("date_creation")); // ou date_publication selon ta table
         offre.setCommentaire(rs.getString("description"));
         offre.setIdConducteur(conducteur.getIdUtilisateur()); // Correctement assigné
-
+        
+     // Vérifier si la colonne commentaire existe
+        try {
+            String commentaire = rs.getString("commentaire");
+            offre.setCommentaire(commentaire);
+        } catch (SQLException e) {
+            // La colonne n'existe pas, on l'ignore
+        }
         reservation.setOffre(offre);
 
         return reservation;

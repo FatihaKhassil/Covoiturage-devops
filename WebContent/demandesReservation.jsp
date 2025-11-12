@@ -1,38 +1,28 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="models.Conducteur" %>
-<%@ page import="models.Reservation" %>
-<%@ page import="java.util.List" %>
-<%@ page import="java.util.ArrayList" %>
-<%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="models.Conducteur, models.Reservation, models.Passager, models.Offre, java.util.List, java.text.SimpleDateFormat" %>
 <%
     Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
-    List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
+    
+    List<Reservation> enAttente = (List<Reservation>) request.getAttribute("enAttente");
+    List<Reservation> confirmees = (List<Reservation>) request.getAttribute("confirmees");
+    List<Reservation> annulees = (List<Reservation>) request.getAttribute("annulees");
+    List<Reservation> terminees = (List<Reservation>) request.getAttribute("terminees");
+    
+    Integer nbEnAttente = (Integer) request.getAttribute("nbEnAttente");
+    Integer nbConfirmees = (Integer) request.getAttribute("nbConfirmees");
+    Integer nbAnnulees = (Integer) request.getAttribute("nbAnnulees");
+    Integer nbTerminees = (Integer) request.getAttribute("nbTerminees");
+    Integer totalReservations = (Integer) request.getAttribute("totalReservations");
+    
+    if (nbEnAttente == null) nbEnAttente = 0;
+    if (nbConfirmees == null) nbConfirmees = 0;
+    if (nbAnnulees == null) nbAnnulees = 0;
+    if (nbTerminees == null) nbTerminees = 0;
+    if (totalReservations == null) totalReservations = 0;
     
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
     SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
-    
-    // Filtrer les réservations par statut
-    List<Reservation> enAttente = new ArrayList<>();
-    List<Reservation> confirmees = new ArrayList<>();
-    List<Reservation> refusees = new ArrayList<>();
-    
-    if (reservations != null) {
-        for (Reservation r : reservations) {
-            switch (r.getStatut()) {
-                case "en_attente":
-                    enAttente.add(r);
-                    break;
-                case "confirmee":
-                    confirmees.add(r);
-                    break;
-                case "refusee":
-                    refusees.add(r);
-                    break;
-            }
-        }
-    }
-    
-    int totalReservations = reservations != null ? reservations.size() : 0;
+    SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 %>
 
 <style>
@@ -56,6 +46,18 @@
         font-weight: bold;
         color: #667eea;
         margin-bottom: 5px;
+    }
+    
+    .stat-mini.warning .number {
+        color: #ff9800;
+    }
+    
+    .stat-mini.success .number {
+        color: #4caf50;
+    }
+    
+    .stat-mini.danger .number {
+        color: #e74c3c;
     }
     
     .stat-mini .label {
@@ -147,8 +149,12 @@
         border-left-color: #4caf50;
     }
     
-    .demande-card.refusee {
+    .demande-card.annulee {
         border-left-color: #e74c3c;
+    }
+    
+    .demande-card.terminee {
+        border-left-color: #17a2b8;
     }
     
     .demande-header {
@@ -209,9 +215,14 @@
         color: #155724;
     }
     
-    .status-refusee {
+    .status-annulee {
         background: #f8d7da;
         color: #721c24;
+    }
+    
+    .status-terminee {
+        background: #d1ecf1;
+        color: #0c5460;
     }
     
     .trajet-info {
@@ -328,6 +339,18 @@
         color: #95a5a6;
         margin-top: 5px;
     }
+    
+    .contact-info {
+        background: #e7f3ff;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-size: 14px;
+    }
+    
+    .contact-info strong {
+        color: #0066cc;
+    }
 </style>
 
 <div class="top-bar">
@@ -339,20 +362,20 @@
 
 <!-- Statistiques des demandes -->
 <div class="demandes-stats">
-    <div class="stat-mini">
-        <div class="number">5</div>
+    <div class="stat-mini warning">
+        <div class="number"><%= nbEnAttente %></div>
         <div class="label">En Attente</div>
     </div>
-    <div class="stat-mini">
-        <div class="number">12</div>
+    <div class="stat-mini success">
+        <div class="number"><%= nbConfirmees %></div>
         <div class="label">Confirmées</div>
     </div>
-    <div class="stat-mini">
-        <div class="number">3</div>
-        <div class="label">Refusées</div>
+    <div class="stat-mini danger">
+        <div class="number"><%= nbAnnulees %></div>
+        <div class="label">Annulées</div>
     </div>
     <div class="stat-mini">
-        <div class="number">20</div>
+        <div class="number"><%= totalReservations %></div>
         <div class="label">Total</div>
     </div>
 </div>
@@ -361,217 +384,226 @@
 <div class="tabs-container">
     <div class="tabs-header">
         <button class="tab-button active" onclick="showTab('en-attente')">
-            ⏳ En Attente <span class="tab-badge">5</span>
+            ⏳ En Attente <% if (nbEnAttente > 0) { %><span class="tab-badge"><%= nbEnAttente %></span><% } %>
         </button>
         <button class="tab-button" onclick="showTab('confirmees')">
             ✅ Confirmées
         </button>
-        <button class="tab-button" onclick="showTab('refusees')">
-            ❌ Refusées
+        <button class="tab-button" onclick="showTab('annulees')">
+            ❌ Annulées
         </button>
-        <button class="tab-button" onclick="showTab('historique')">
-            📚 Historique
+        <button class="tab-button" onclick="showTab('terminees')">
+            🎯 Terminées
         </button>
     </div>
     
     <!-- Onglet En Attente -->
     <div id="tab-en-attente" class="tab-content active">
-        <!-- Demande 1 -->
-        <div class="demande-card en-attente">
-            <div class="demande-header">
-                <div class="passager-info">
-                    <div class="passager-avatar">AE</div>
-                    <div class="passager-details">
-                        <h4>Ahmed El Amrani</h4>
-                        <div class="passager-rating">
-                            ⭐ 4.8/5 <span style="color: #6c757d;">(23 voyages)</span>
+        <% if (enAttente == null || enAttente.isEmpty()) { %>
+            <div class="empty-demandes">
+                <div class="empty-demandes-icon">⏳</div>
+                <h3>Aucune demande en attente</h3>
+                <p>Les nouvelles demandes de réservation apparaîtront ici</p>
+            </div>
+        <% } else { %>
+            <% for (Reservation reservation : enAttente) { 
+                Passager passager = reservation.getPassager();
+                Offre offre = reservation.getOffre();
+                String initiales = "";
+                if (passager != null && passager.getPrenom() != null && passager.getNom() != null) {
+                    initiales = passager.getPrenom().substring(0, 1).toUpperCase() + 
+                               passager.getNom().substring(0, 1).toUpperCase();
+                }
+            %>
+                <div class="demande-card en-attente">
+                    <div class="demande-header">
+                        <div class="passager-info">
+                            <div class="passager-avatar"><%= initiales %></div>
+                            <div class="passager-details">
+                                <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
+                                <div class="passager-rating">
+                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                </div>
+                                <div class="demande-time">🕒 <%= dateTimeFormat.format(reservation.getDateReservation()) %></div>
+                            </div>
                         </div>
-                        <div class="demande-time">🕒 Il y a 2 heures</div>
+                        <span class="demande-status status-en-attente">En Attente</span>
                     </div>
-                </div>
-                <span class="demande-status status-en-attente">En Attente</span>
-            </div>
-            
-            <div class="trajet-info">
-                <div class="trajet-route">
-                    📍 Casablanca <span class="arrow">→</span> Rabat
-                </div>
-                <div class="trajet-details">
-                    <div class="trajet-detail-item">
-                        <strong>Date</strong>
-                        Lundi 11 Nov 2025
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Heure</strong>
-                        08:00
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Places</strong>
-                        2 places
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Montant</strong>
-                        100 DH (50 DH/place)
-                    </div>
-                </div>
-            </div>
-            
-            <div class="demande-message">
-                💬 "Bonjour, je souhaite réserver 2 places pour ce trajet. Je suis ponctuel et je voyage léger. Merci!"
-            </div>
-            
-            <div class="demande-actions">
-                <button class="btn-action btn-accept" onclick="confirmerReservation(1)">
-                    ✅ Accepter
-                </button>
-                <button class="btn-action btn-reject" onclick="refuserReservation(1)">
-                    ❌ Refuser
-                </button>
-                <button class="btn-action btn-contact" onclick="contacterPassager(1)">
-                    💬 Contacter
-                </button>
-            </div>
-        </div>
-        
-        <!-- Demande 2 -->
-        <div class="demande-card en-attente">
-            <div class="demande-header">
-                <div class="passager-info">
-                    <div class="passager-avatar">SK</div>
-                    <div class="passager-details">
-                        <h4>Salma Karim</h4>
-                        <div class="passager-rating">
-                            ⭐ 5.0/5 <span style="color: #6c757d;">(8 voyages)</span>
+                    
+                    <div class="trajet-info">
+                        <div class="trajet-route">
+                            📍 <%= offre.getVilleDepart() %> <span class="arrow">→</span> <%= offre.getVilleArrivee() %>
                         </div>
-                        <div class="demande-time">🕒 Il y a 5 heures</div>
+                        <div class="trajet-details">
+                            <div class="trajet-detail-item">
+                                <strong>Date</strong>
+                                <%= dateFormat.format(offre.getDateDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Heure</strong>
+                                <%= timeFormat.format(offre.getHeureDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Places</strong>
+                                <%= reservation.getNombrePlaces() %> place(s)
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Montant</strong>
+                                <%= String.format("%.0f", reservation.getPrixTotal()) %> DH
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <% if (reservation.getMessagePassager() != null && !reservation.getMessagePassager().trim().isEmpty()) { %>
+                        <div class="demande-message">
+                            💬 "<%= reservation.getMessagePassager() %>"
+                        </div>
+                    <% } %>
+                    
+                    <div class="demande-actions">
+                        <button class="btn-action btn-accept" onclick="confirmerReservation(<%= reservation.getIdReservation() %>)">
+                            ✅ Accepter
+                        </button>
+                        <button class="btn-action btn-reject" onclick="refuserReservation(<%= reservation.getIdReservation() %>)">
+                            ❌ Refuser
+                        </button>
+                        <% if (passager != null && passager.getTelephone() != null) { %>
+                            <a href="tel:<%= passager.getTelephone() %>" class="btn-action btn-contact" style="text-decoration: none;">
+                                📞 <%= passager.getTelephone() %>
+                            </a>
+                        <% } %>
                     </div>
                 </div>
-                <span class="demande-status status-en-attente">En Attente</span>
-            </div>
-            
-            <div class="trajet-info">
-                <div class="trajet-route">
-                    📍 Marrakech <span class="arrow">→</span> Agadir
-                </div>
-                <div class="trajet-details">
-                    <div class="trajet-detail-item">
-                        <strong>Date</strong>
-                        Mercredi 13 Nov 2025
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Heure</strong>
-                        14:30
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Places</strong>
-                        1 place
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Montant</strong>
-                        120 DH
-                    </div>
-                </div>
-            </div>
-            
-            <div class="demande-message">
-                💬 "Bonjour, est-il possible de faire un arrêt rapide à Essaouira ? Merci d'avance."
-            </div>
-            
-            <div class="demande-actions">
-                <button class="btn-action btn-accept" onclick="confirmerReservation(2)">
-                    ✅ Accepter
-                </button>
-                <button class="btn-action btn-reject" onclick="refuserReservation(2)">
-                    ❌ Refuser
-                </button>
-                <button class="btn-action btn-contact" onclick="contacterPassager(2)">
-                    💬 Contacter
-                </button>
-            </div>
-        </div>
+            <% } %>
+        <% } %>
     </div>
     
     <!-- Onglet Confirmées -->
     <div id="tab-confirmees" class="tab-content">
-        <div class="demande-card confirmee">
-            <div class="demande-header">
-                <div class="passager-info">
-                    <div class="passager-avatar">MB</div>
-                    <div class="passager-details">
-                        <h4>Mohammed Bennani</h4>
-                        <div class="passager-rating">
-                            ⭐ 4.6/5 <span style="color: #6c757d;">(15 voyages)</span>
+        <% if (confirmees == null || confirmees.isEmpty()) { %>
+            <div class="empty-demandes">
+                <div class="empty-demandes-icon">✅</div>
+                <h3>Aucune réservation confirmée</h3>
+                <p>Les réservations confirmées apparaîtront ici</p>
+            </div>
+        <% } else { %>
+            <% for (Reservation reservation : confirmees) { 
+                Passager passager = reservation.getPassager();
+                Offre offre = reservation.getOffre();
+                String initiales = "";
+                if (passager != null && passager.getPrenom() != null && passager.getNom() != null) {
+                    initiales = passager.getPrenom().substring(0, 1).toUpperCase() + 
+                               passager.getNom().substring(0, 1).toUpperCase();
+                }
+            %>
+                <div class="demande-card confirmee">
+                    <div class="demande-header">
+                        <div class="passager-info">
+                            <div class="passager-avatar"><%= initiales %></div>
+                            <div class="passager-details">
+                                <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
+                                <div class="passager-rating">
+                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                </div>
+                                <div class="demande-time">✅ Confirmée le <%= dateFormat.format(reservation.getDateReservation()) %></div>
+                            </div>
                         </div>
-                        <div class="demande-time">✅ Confirmée le 08 Nov 2025</div>
+                        <span class="demande-status status-confirmee">Confirmée</span>
+                    </div>
+                    
+                    <div class="trajet-info">
+                        <div class="trajet-route">
+                            📍 <%= offre.getVilleDepart() %> <span class="arrow">→</span> <%= offre.getVilleArrivee() %>
+                        </div>
+                        <div class="trajet-details">
+                            <div class="trajet-detail-item">
+                                <strong>Date</strong>
+                                <%= dateFormat.format(offre.getDateDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Heure</strong>
+                                <%= timeFormat.format(offre.getHeureDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Places</strong>
+                                <%= reservation.getNombrePlaces() %> place(s)
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Montant</strong>
+                                <%= String.format("%.0f", reservation.getPrixTotal()) %> DH
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <% if (passager != null && passager.getTelephone() != null) { %>
+                        <div class="contact-info">
+                            <strong>📞 Téléphone:</strong> <%= passager.getTelephone() %>
+                        </div>
+                    <% } %>
+                    
+                    <div class="demande-actions">
+                        <% if (passager != null && passager.getTelephone() != null) { %>
+                            <a href="tel:<%= passager.getTelephone() %>" class="btn-action btn-contact" style="text-decoration: none;">
+                                📞 Appeler
+                            </a>
+                        <% } %>
+                        <button class="btn-action btn-reject" onclick="refuserReservation(<%= reservation.getIdReservation() %>)">
+                            ❌ Annuler
+                        </button>
                     </div>
                 </div>
-                <span class="demande-status status-confirmee">Confirmée</span>
-            </div>
-            
-            <div class="trajet-info">
-                <div class="trajet-route">
-                    📍 Casablanca <span class="arrow">→</span> Rabat
-                </div>
-                <div class="trajet-details">
-                    <div class="trajet-detail-item">
-                        <strong>Date</strong>
-                        Lundi 11 Nov 2025
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Heure</strong>
-                        08:00
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Places</strong>
-                        1 place
-                    </div>
-                    <div class="trajet-detail-item">
-                        <strong>Téléphone</strong>
-                        0612345678
-                    </div>
-                </div>
-            </div>
-            
-            <div class="demande-actions">
-                <button class="btn-action btn-contact" onclick="contacterPassager(3)">
-                    📞 Appeler
-                </button>
-                <button class="btn-action btn-reject" onclick="annulerReservation(3)">
-                    ❌ Annuler
-                </button>
-            </div>
-        </div>
+            <% } %>
+        <% } %>
     </div>
     
-    <!-- Onglet Refusées -->
-    <div id="tab-refusees" class="tab-content">
-        <div class="demande-card refusee">
-            <div class="demande-header">
-                <div class="passager-info">
-                    <div class="passager-avatar">FA</div>
-                    <div class="passager-details">
-                        <h4>Fatima Alaoui</h4>
-                        <div class="passager-rating">
-                            ⭐ 4.2/5 <span style="color: #6c757d;">(10 voyages)</span>
+    <!-- Onglet Annulées -->
+    <div id="tab-annulees" class="tab-content">
+        <% if (annulees == null || annulees.isEmpty()) { %>
+            <div class="empty-demandes">
+                <div class="empty-demandes-icon">❌</div>
+                <h3>Aucune réservation annulée</h3>
+                <p>Les réservations annulées apparaîtront ici</p>
+            </div>
+        <% } else { %>
+            <% for (Reservation reservation : annulees) { 
+                Passager passager = reservation.getPassager();
+                Offre offre = reservation.getOffre();
+                String initiales = "";
+                if (passager != null && passager.getPrenom() != null && passager.getNom() != null) {
+                    initiales = passager.getPrenom().substring(0, 1).toUpperCase() + 
+                               passager.getNom().substring(0, 1).toUpperCase();
+                }
+            %>
+                <div class="demande-card annulee">
+                    <div class="demande-header">
+                        <div class="passager-info">
+                            <div class="passager-avatar"><%= initiales %></div>
+                            <div class="passager-details">
+                                <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
+                                <div class="demande-time">❌ Annulée</div>
+                            </div>
                         </div>
-                        <div class="demande-time">❌ Refusée le 07 Nov 2025</div>
+                        <span class="demande-status status-annulee">Annulée</span>
+                    </div>
+                    
+                    <div class="trajet-info">
+                        <div class="trajet-route">
+                            📍 <%= offre.getVilleDepart() %> <span class="arrow">→</span> <%= offre.getVilleArrivee() %>
+                        </div>
+                        <div class="trajet-details">
+                            <div class="trajet-detail-item">
+                                <strong>Date</strong>
+                                <%= dateFormat.format(offre.getDateDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Places</strong>
+                                <%= reservation.getNombrePlaces() %> place(s)
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <span class="demande-status status-refusee">Refusée</span>
-            </div>
-            
-            <div class="trajet-info">
-                <div class="trajet-route">
-                    📍 Fès <span class="arrow">→</span> Meknès
-                </div>
-                <div class="trajet-details">
-                    <div class="trajet-detail-item">
-                        <strong>Motif</strong>
-                        Places déjà complètes
-                    </div>
-                </div>
-            </div>
-        </div>
+            <% } %>
+        <% } %>
     </div>
     
     <!-- Onglet Historique -->

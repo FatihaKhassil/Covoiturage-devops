@@ -5,6 +5,7 @@ import java.util.Date;
 
 public class Offre {
     private Long idOffre;
+    private Conducteur conducteur;
     private Long idConducteur;
     private String villeDepart;
     private String villeArrivee;
@@ -43,6 +44,9 @@ public class Offre {
     // Méthodes métier
     public Boolean verifierDisponibilite(Integer nbPlaces) {
         return this.placesDisponibles >= nbPlaces;
+    }
+    public Conducteur getConducteur() {
+        return conducteur;
     }
     
     public void mettreAJourPlaces(Integer nbPlaces) {

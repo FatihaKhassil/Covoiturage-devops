@@ -1,11 +1,11 @@
 package controller;
 
-import models.Conducteur;
-import models.Offre;
-import models.Evaluation;
+import models.*;
 import dao.OffreDAO;
+import dao.ReservationDAO;
 import dao.EvaluationDAO;
 import dao.impl.OffreDAOImpl;
+import dao.impl.ReservationDAOImpl;
 import dao.impl.EvaluationDAOImpl;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -28,6 +28,7 @@ public class ConducteurServlet extends HttpServlet {
     
     private OffreDAO offreDAO;
     private EvaluationDAO evaluationDAO;
+    private ReservationDAO reservationDAO;
     
     @Override
     public void init() throws ServletException {
@@ -35,11 +36,11 @@ public class ConducteurServlet extends HttpServlet {
             Connection connection = Factory.dbConnect();
             this.offreDAO = new OffreDAOImpl(connection);
             this.evaluationDAO = new EvaluationDAOImpl(connection);
+            this.reservationDAO = new ReservationDAOImpl(connection);  // ✅ Ajouter ceci
         } catch (Exception e) {
             throw new ServletException("Impossible de se connecter à la base de données", e);
         }
-    }
-    
+    }    
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
@@ -82,6 +83,7 @@ public class ConducteurServlet extends HttpServlet {
                 break;
         }
     }
+    
     
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
@@ -174,7 +176,7 @@ int totalReservations = 0;
 int demandesEnAttente = 0;
 
 // Si vous avez déjà un ReservationDAO, décommentez ces lignes:
-// List<Reservation> reservations = reservationDAO.findByConducteur(conducteurId);
+// List<Reservation> reservations = ReservationDAO.findByConducteur(conducteurId);
 // totalReservations = reservations.size();
 // for (Reservation res : reservations) {
 //     if ("EN_ATTENTE".equals(res.getStatut())) {
@@ -270,10 +272,73 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
     }
     
     private void afficherDemandes(HttpServletRequest request, HttpServletResponse response, 
-                                  Conducteur conducteur) throws ServletException, IOException {
-        request.setAttribute("page", "demandes");
-        request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
-    }
+            Conducteur conducteur) throws ServletException, IOException {
+try {
+Long conducteurId = conducteur.getId();
+
+if (conducteurId == null) {
+request.setAttribute("error", "Erreur: ID conducteur non trouvé");
+request.setAttribute("reservations", new java.util.ArrayList<>());
+request.setAttribute("nbEnAttente", 0);
+request.setAttribute("nbConfirmees", 0);
+request.setAttribute("nbRefusees", 0);
+} else {
+// Récupérer toutes les réservations pour les offres du conducteur
+List<Reservation> reservations = reservationDAO.findByConducteur(conducteurId);
+
+// Calculer les statistiques par statut
+int nbEnAttente = 0;
+int nbConfirmees = 0;
+int nbAnnulees = 0;
+int nbTerminees = 0;
+
+// Séparer les réservations par statut
+List<Reservation> enAttente = new java.util.ArrayList<>();
+List<Reservation> confirmees = new java.util.ArrayList<>();
+List<Reservation> annulees = new java.util.ArrayList<>();
+List<Reservation> terminees = new java.util.ArrayList<>();
+
+for (Reservation res : reservations) {
+String statut = res.getStatut();
+if ("EN_ATTENTE".equals(statut)) {
+  nbEnAttente++;
+  enAttente.add(res);
+} else if ("CONFIRMEE".equals(statut)) {
+  nbConfirmees++;
+  confirmees.add(res);
+} else if ("ANNULEE".equals(statut)) {
+  nbAnnulees++;
+  annulees.add(res);
+} else if ("TERMINEE".equals(statut)) {
+  nbTerminees++;
+  terminees.add(res);
+}
+}
+
+// Passer les données à la JSP
+request.setAttribute("reservations", reservations);
+request.setAttribute("enAttente", enAttente);
+request.setAttribute("confirmees", confirmees);
+request.setAttribute("annulees", annulees);
+request.setAttribute("terminees", terminees);
+request.setAttribute("nbEnAttente", nbEnAttente);
+request.setAttribute("nbConfirmees", nbConfirmees);
+request.setAttribute("nbAnnulees", nbAnnulees);
+request.setAttribute("nbTerminees", nbTerminees);
+request.setAttribute("totalReservations", reservations.size());
+}
+} catch (Exception e) {
+e.printStackTrace();
+request.setAttribute("error", "Erreur lors du chargement des demandes: " + e.getMessage());
+request.setAttribute("reservations", new java.util.ArrayList<>());
+request.setAttribute("nbEnAttente", 0);
+request.setAttribute("nbConfirmees", 0);
+request.setAttribute("nbAnnulees", 0);
+}
+
+request.setAttribute("page", "demandes");
+request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
+}
     
     private void afficherEvaluations(HttpServletRequest request, HttpServletResponse response, 
                                      Conducteur conducteur) throws ServletException, IOException {
@@ -451,11 +516,62 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
     
     private void confirmerReservation(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        try {
+            String reservationIdStr = request.getParameter("reservationId");
+            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
+                Long reservationId = Long.parseLong(reservationIdStr);
+                
+                // Mettre à jour le statut à CONFIRMEE
+                boolean success = reservationDAO.updateStatut(reservationId, "CONFIRMEE");
+                
+                HttpSession session = request.getSession();
+                if (success) {
+                    session.setAttribute("success", "Réservation confirmée avec succès!");
+                } else {
+                    session.setAttribute("error", "Erreur lors de la confirmation");
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            HttpSession session = request.getSession();
+            session.setAttribute("error", "Erreur: " + e.getMessage());
+        }
         response.sendRedirect("Conducteur?page=demandes");
     }
-    
+
     private void refuserReservation(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
+        try {
+            String reservationIdStr = request.getParameter("reservationId");
+            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
+                Long reservationId = Long.parseLong(reservationIdStr);
+                
+                // Récupérer la réservation pour remettre les places disponibles
+                Reservation reservation = reservationDAO.findById(reservationId);
+                
+                if (reservation != null) {
+                    // Mettre à jour le statut à ANNULEE
+                    boolean success = reservationDAO.updateStatut(reservationId, "ANNULEE");
+                    
+                    if (success) {
+                        // Remettre les places disponibles
+                        Offre offre = reservation.getOffre();
+                        Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
+                        offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
+                        
+                        HttpSession session = request.getSession();
+                        session.setAttribute("success", "Réservation refusée");
+                    } else {
+                        HttpSession session = request.getSession();
+                        session.setAttribute("error", "Erreur lors du refus");
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            HttpSession session = request.getSession();
+            session.setAttribute("error", "Erreur: " + e.getMessage());
+        }
         response.sendRedirect("Conducteur?page=demandes");
     }
     

@@ -10,6 +10,7 @@ public interface ReservationDAO {
  Reservation findById(Long id) throws SQLException;
  List<Reservation> findByPassager(Long passagerId) throws SQLException;
  List<Reservation> findByOffre(Long offreId) throws SQLException;
+ List<Reservation> findByConducteur(Long conducteurId) throws SQLException;
  boolean update(Reservation reservation) throws SQLException;
  boolean updateStatut(Long reservationId, String statut) throws SQLException;
  boolean delete(Long id) throws SQLException;
