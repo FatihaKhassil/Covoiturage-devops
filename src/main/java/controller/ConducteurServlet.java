@@ -4,9 +4,11 @@ import models.*;
 import dao.OffreDAO;
 import dao.ReservationDAO;
 import dao.EvaluationDAO;
+import dao.ConducteurDAO;
 import dao.impl.OffreDAOImpl;
 import dao.impl.ReservationDAOImpl;
 import dao.impl.EvaluationDAOImpl;
+import dao.impl.ConducteurDAOImpl;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -15,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -29,6 +32,7 @@ public class ConducteurServlet extends HttpServlet {
     private OffreDAO offreDAO;
     private EvaluationDAO evaluationDAO;
     private ReservationDAO reservationDAO;
+    private ConducteurDAO conducteurDAO;
     
     @Override
     public void init() throws ServletException {
@@ -36,7 +40,8 @@ public class ConducteurServlet extends HttpServlet {
             Connection connection = Factory.dbConnect();
             this.offreDAO = new OffreDAOImpl(connection);
             this.evaluationDAO = new EvaluationDAOImpl(connection);
-            this.reservationDAO = new ReservationDAOImpl(connection);  // ✅ Ajouter ceci
+            this.reservationDAO = new ReservationDAOImpl(connection);
+            this.conducteurDAO = new ConducteurDAOImpl(connection);
         } catch (Exception e) {
             throw new ServletException("Impossible de se connecter à la base de données", e);
         }
@@ -577,16 +582,130 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
     
     private void updateProfil(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        response.sendRedirect("Conducteur?page=profil&success=true");
+        
+        // 1. Récupérer l'utilisateur en session
+        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
+        
+        // Vérification de sécurité
+        if (conducteur == null) {
+            response.sendRedirect("connexion.jsp");
+            return;
+        }
+        
+        // 2. Récupérer les données du formulaire
+        String nouveauNom = request.getParameter("nom");
+        String nouveauPrenom = request.getParameter("prenom");
+        String nouvelEmail = request.getParameter("email");
+        String nouveauTelephone = request.getParameter("telephone");
+
+        // 3. Mettre à jour l'objet en mémoire (très important !)
+        conducteur.setNom(nouveauNom);
+        conducteur.setPrenom(nouveauPrenom);
+        conducteur.setEmail(nouvelEmail);
+        conducteur.setTelephone(nouveauTelephone);
+        
+        try {
+            // 4. Persister en Base de Données
+            // NOTE: Votre DAO update() gère la mise à jour des champs Utilisateur et Conducteur
+            conducteurDAO.update(conducteur); 
+            
+            // 5. Mettre à jour la session avec le nouvel objet
+            request.getSession().setAttribute("utilisateur", conducteur);
+            
+            // 6. Redirection succès
+            response.sendRedirect("Conducteur?page=profil&success=true");
+            
+        } catch (SQLException e) {
+            // Gérer les erreurs (ex: email déjà utilisé, contrainte unique violée)
+            request.setAttribute("error", "Erreur lors de la mise à jour : " + e.getMessage());
+            response.sendRedirect("Conducteur?page=profil&error=true");
+        }
     }
     
     private void updateVehicule(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        response.sendRedirect("Conducteur?page=profil&success=true");
+        
+        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
+        if (conducteur == null) {
+            response.sendRedirect("connexion.jsp");
+            return;
+        }
+        
+        // Récupérer les données du véhicule
+        String nouvelleMarque = request.getParameter("marqueVehicule");
+        String nouveauModele = request.getParameter("modeleVehicule");
+        String nouvelleImmatriculation = request.getParameter("immatriculation");
+        int nouveauNombrePlaces = Integer.parseInt(request.getParameter("nombrePlaces"));
+
+        // Mettre à jour l'objet
+        conducteur.setMarqueVehicule(nouvelleMarque);
+        conducteur.setModeleVehicule(nouveauModele);
+        conducteur.setImmatriculation(nouvelleImmatriculation);
+        conducteur.setNombrePlacesVehicule(nouveauNombrePlaces);
+        
+        try {
+            // Persister en Base de Données
+            conducteurDAO.update(conducteur); 
+            
+            // Mettre à jour la session
+            request.getSession().setAttribute("utilisateur", conducteur);
+            
+            // Redirection succès
+            response.sendRedirect("Conducteur?page=profil&success=true");
+            
+        } catch (SQLException e) {
+            // Gérer les erreurs de BD
+            request.setAttribute("error", "Erreur lors de la mise à jour du véhicule : " + e.getMessage());
+            response.sendRedirect("Conducteur?page=profil&error=true");
+        }
     }
     
     private void updateMotDePasse(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        response.sendRedirect("Conducteur?page=profil&success=true");
+        
+        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
+        if (conducteur == null) {
+            response.sendRedirect("connexion.jsp");
+            return;
+        }
+        
+        // Récupérer les mots de passe
+        String ancienMotDePasseForm = request.getParameter("ancienMotDePasse");
+        String nouveauMotDePasse = request.getParameter("nouveauMotDePasse");
+        String confirmerMotDePasse = request.getParameter("confirmerMotDePasse");
+
+        // 1. Vérification côté serveur (Sécurité)
+        if (!nouveauMotDePasse.equals(confirmerMotDePasse)) {
+            // Les mots de passe ne correspondent pas
+            response.sendRedirect("Conducteur?page=profil&error=true&msg=Les mots de passe ne correspondent pas.");
+            return;
+        }
+        
+        // 2. Vérifier l'ancien mot de passe (vous aurez besoin d'une méthode de hachage/vérification)
+        // NOTE: C'est un point critique de sécurité. Assurez-vous d'utiliser un hachage (ex: BCrypt)
+        // Supposons ici que vous avez une méthode 'checkPassword' dans votre UtilisateurDAO.
+        // Pour l'exemple, nous allons utiliser le mot de passe clair si vous ne le hachez pas
+        if (!conducteur.getMotDePasse().equals(ancienMotDePasseForm)) {
+            response.sendRedirect("Conducteur?page=profil&error=true&msg=Ancien mot de passe incorrect.");
+            return;
+        }
+        
+        // 3. Mettre à jour l'objet et la BD
+        conducteur.setMotDePasse(nouveauMotDePasse); // Assurez-vous de HACHER ce mot de passe avant la BD!
+        
+        try {
+            // Vous aurez besoin d'une méthode spécifique dans UtilisateurDAO pour mettre à jour UNIQUEMENT le mot de passe
+            // utilisateurDAO.updateMotDePasse(conducteur.getIdUtilisateur(), nouveauMotDePasse); 
+            conducteurDAO.update(conducteur); // Si update() gère aussi le mot de passe
+            
+            // Mettre à jour la session
+            request.getSession().setAttribute("utilisateur", conducteur); 
+            
+            // Redirection succès
+            response.sendRedirect("Conducteur?page=profil&success=true&msg=Mot de passe changé.");
+            
+        } catch (SQLException e) {
+            response.sendRedirect("Conducteur?page=profil&error=true&msg=Erreur de BD.");
+        }
     }
 }

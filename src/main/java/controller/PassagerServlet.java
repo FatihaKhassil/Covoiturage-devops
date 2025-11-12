@@ -16,6 +16,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.sql.Connection;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -360,12 +361,17 @@ public class PassagerServlet extends HttpServlet {
             reservation.setPassager(passager);
             reservation.setNombrePlaces(nombrePlaces);
             reservation.setPrixTotal(prixTotal);
-            reservation.setStatut("CONFIRMEE");
+            reservation.setStatut("EN_ATTENTE");
             reservation.setDateReservation(new Date());
             reservation.setMessagePassager(messagePassager);
             
             // Sauvegarder la réservation
             Long reservationId = reservationDAO.create(reservation);
+            // ///////////////////////////////////////////////////////
+            /////////////////////////////////////////////////////
+            ////////////////////////////////////
+            ///
+            ///
             
             if (reservationId != null) {
                 // Mettre à jour les places disponibles
@@ -424,13 +430,92 @@ public class PassagerServlet extends HttpServlet {
     
     private void updateProfil(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        // TODO: Implémenter la mise à jour du profil
-        response.sendRedirect("Passager?page=profil&success=true");
+        
+        // 1. Récupérer l'utilisateur en session
+        Passager passager = (Passager) request.getSession().getAttribute("utilisateur");
+        
+        // Vérification de sécurité
+        if (passager == null) {
+            response.sendRedirect("connexion.jsp");
+            return;
+        }
+        
+        // 2. Récupérer les données du formulaire
+        String nouveauNom = request.getParameter("nom");
+        String nouveauPrenom = request.getParameter("prenom");
+        String nouvelEmail = request.getParameter("email");
+        String nouveauTelephone = request.getParameter("telephone");
+
+        // 3. Mettre à jour l'objet en mémoire (très important !)
+        passager.setNom(nouveauNom);
+        passager.setPrenom(nouveauPrenom);
+        passager.setEmail(nouvelEmail);
+        passager.setTelephone(nouveauTelephone);
+        
+        try {
+            // 4. Persister en Base de Données
+            // NOTE: Votre DAO update() gère la mise à jour des champs Utilisateur et passager
+            passagerDAO.update(passager); 
+            
+            // 5. Mettre à jour la session avec le nouvel objet
+            request.getSession().setAttribute("utilisateur", passager);
+            
+            // 6. Redirection succès
+            response.sendRedirect("passager?page=profil&success=true");
+            
+        } catch (SQLException e) {
+            // Gérer les erreurs (ex: email déjà utilisé, contrainte unique violée)
+            request.setAttribute("error", "Erreur lors de la mise à jour : " + e.getMessage());
+            response.sendRedirect("passager?page=profil&error=true");
+        }
     }
     
     private void updateMotDePasse(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
-        // TODO: Implémenter la mise à jour du mot de passe
-        response.sendRedirect("Passager?page=profil&success=true");
+        
+        Passager passager = (Passager) request.getSession().getAttribute("utilisateur");
+        if (passager == null) {
+            response.sendRedirect("connexion.jsp");
+            return;
+        }
+        
+        // Récupérer les mots de passe
+        String ancienMotDePasseForm = request.getParameter("ancienMotDePasse");
+        String nouveauMotDePasse = request.getParameter("nouveauMotDePasse");
+        String confirmerMotDePasse = request.getParameter("confirmerMotDePasse");
+
+        // 1. Vérification côté serveur (Sécurité)
+        if (!nouveauMotDePasse.equals(confirmerMotDePasse)) {
+            // Les mots de passe ne correspondent pas
+            response.sendRedirect("Passager?page=profil&error=true&msg=Les mots de passe ne correspondent pas.");
+            return;
+        }
+        
+        // 2. Vérifier l'ancien mot de passe (vous aurez besoin d'une méthode de hachage/vérification)
+        // NOTE: C'est un point critique de sécurité. Assurez-vous d'utiliser un hachage (ex: BCrypt)
+        // Supposons ici que vous avez une méthode 'checkPassword' dans votre UtilisateurDAO.
+        // Pour l'exemple, nous allons utiliser le mot de passe clair si vous ne le hachez pas
+        if (!passager.getMotDePasse().equals(ancienMotDePasseForm)) {
+            response.sendRedirect("Passager?page=profil&error=true&msg=Ancien mot de passe incorrect.");
+            return;
+        }
+        
+        // 3. Mettre à jour l'objet et la BD
+        passager.setMotDePasse(nouveauMotDePasse); // Assurez-vous de HACHER ce mot de passe avant la BD!
+        
+        try {
+            // Vous aurez besoin d'une méthode spécifique dans UtilisateurDAO pour mettre à jour UNIQUEMENT le mot de passe
+            // utilisateurDAO.updateMotDePasse(passager.getIdUtilisateur(), nouveauMotDePasse); 
+            passagerDAO.update(passager); // Si update() gère aussi le mot de passe
+            
+            // Mettre à jour la session
+            request.getSession().setAttribute("utilisateur", passager); 
+            
+            // Redirection succès
+            response.sendRedirect("Passager?page=profil&success=true&msg=Mot de passe changé.");
+            
+        } catch (SQLException e) {
+            response.sendRedirect("Passager?page=profil&error=true&msg=Erreur de BD.");
+        }
     }
 }

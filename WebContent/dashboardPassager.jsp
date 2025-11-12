@@ -355,7 +355,7 @@
             <%
                 } else if ("profil".equals(currentPage)) {
             %>
-                <jsp:include page="monProfil.jsp" />
+                <jsp:include page="PassProfil.jsp" />
             <%
                 }
             %>

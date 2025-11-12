@@ -606,13 +606,65 @@
         <% } %>
     </div>
     
-    <!-- Onglet Historique -->
-    <div id="tab-historique" class="tab-content">
-        <div class="empty-demandes">
-            <div class="empty-demandes-icon">📚</div>
-            <h3>Historique des demandes</h3>
-            <p>Toutes vos demandes traitées apparaîtront ici</p>
-        </div>
+    <!-- Onglet Terminées -->
+    <div id="tab-terminees" class="tab-content">
+        <% if (terminees == null || terminees.isEmpty()) { %>
+            <div class="empty-demandes">
+                <div class="empty-demandes-icon">🎯</div>
+                <h3>Aucun trajet terminé</h3>
+                <p>Les trajets terminés apparaîtront ici</p>
+            </div>
+        <% } else { %>
+            <% for (Reservation reservation : terminees) { 
+                Passager passager = reservation.getPassager();
+                Offre offre = reservation.getOffre();
+                String initiales = "";
+                if (passager != null && passager.getPrenom() != null && passager.getNom() != null) {
+                    initiales = passager.getPrenom().substring(0, 1).toUpperCase() + 
+                               passager.getNom().substring(0, 1).toUpperCase();
+                }
+            %>
+                <div class="demande-card terminee">
+                    <div class="demande-header">
+                        <div class="passager-info">
+                            <div class="passager-avatar"><%= initiales %></div>
+                            <div class="passager-details">
+                                <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
+                                <div class="passager-rating">
+                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                </div>
+                                <div class="demande-time">🎯 Trajet terminé</div>
+                            </div>
+                        </div>
+                        <span class="demande-status status-terminee">Terminée</span>
+                    </div>
+                    
+                    <div class="trajet-info">
+                        <div class="trajet-route">
+                            📍 <%= offre.getVilleDepart() %> <span class="arrow">→</span> <%= offre.getVilleArrivee() %>
+                        </div>
+                        <div class="trajet-details">
+                            <div class="trajet-detail-item">
+                                <strong>Date</strong>
+                                <%= dateFormat.format(offre.getDateDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Heure</strong>
+                                <%= timeFormat.format(offre.getHeureDepart()) %>
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Places</strong>
+                                <%= reservation.getNombrePlaces() %> place(s)
+                            </div>
+                            <div class="trajet-detail-item">
+                                <strong>Revenus</strong>
+                                <%= String.format("%.0f", reservation.getPrixTotal()) %> DH
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+        <% } %>
     </div>
 </div>
 
@@ -657,7 +709,7 @@
     }
     
     function refuserReservation(id) {
-        const motif = prompt('Raison du refus (optionnel):');
+        const motif = prompt('Raison du refus/annulation (optionnel):');
         if (motif !== null) {
             const form = document.createElement('form');
             form.method = 'POST';
@@ -683,16 +735,6 @@
             form.appendChild(motifInput);
             document.body.appendChild(form);
             form.submit();
-        }
-    }
-    
-    function contacterPassager(id) {
-        alert('Fonctionnalité de contact en développement');
-    }
-    
-    function annulerReservation(id) {
-        if (confirm('Êtes-vous sûr de vouloir annuler cette réservation confirmée ?')) {
-            alert('Réservation annulée');
         }
     }
 </script>

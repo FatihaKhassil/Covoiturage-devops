@@ -539,7 +539,7 @@
                 } else if ("profil".equals(currentPage)) {
             %>
                 <!-- Inclure la page du profil -->
-                <jsp:include page="monProfil.jsp" />
+                <jsp:include page="ConProfil.jsp" />
             <%
                 }
             %>
