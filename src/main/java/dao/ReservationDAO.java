@@ -14,4 +14,5 @@ public interface ReservationDAO {
  boolean update(Reservation reservation) throws SQLException;
  boolean updateStatut(Long reservationId, String statut) throws SQLException;
  boolean delete(Long id) throws SQLException;
+ List<Reservation> findByConducteurAndStatut(Long id, String string);
 }

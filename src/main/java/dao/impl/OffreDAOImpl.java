@@ -106,19 +106,22 @@ public class OffreDAOImpl implements OffreDAO {
     
     @Override
     public List<Offre> findValidee() throws SQLException {
-        List<Offre> offres = new ArrayList<>();
-        String sql = "SELECT * FROM offre WHERE statut = 'VALIDEE' ORDER BY date_publication DESC";
+        String sql = "SELECT * FROM offre WHERE statut = 'VALIDEE' " +
+                     "AND (date_depart > CURDATE() OR (date_depart = CURDATE() AND heure_depart > CURTIME())) " +
+                     "ORDER BY date_depart, heure_depart";
         
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+        List<Offre> offres = new ArrayList<>();
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
             
             while (rs.next()) {
-                offres.add(mapResultSetToOffre(rs));
+                Offre offre = mapResultSetToOffre(rs);
+                offres.add(offre);
             }
         }
         return offres;
-    }
-    
+    }    
     @Override
     public boolean update(Offre offre) throws SQLException {
         String sql = "UPDATE offre SET ville_depart = ?, ville_arrivee = ?, " +
@@ -175,17 +178,26 @@ public class OffreDAOImpl implements OffreDAO {
     }
     
     @Override
+   
     public boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException {
+        System.out.println("DAO: Mise à jour places offre " + offreId + " à " + nbPlaces);
+        
         String sql = "UPDATE offre SET places_disponibles = ? WHERE id_offre = ?";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, nbPlaces);
             stmt.setLong(2, offreId);
             
-            return stmt.executeUpdate() > 0;
+            int rowsUpdated = stmt.executeUpdate();
+            System.out.println("DAO: Lignes mises à jour: " + rowsUpdated);
+            
+            return rowsUpdated > 0;
+        } catch (SQLException e) {
+            System.err.println("ERREUR DAO updatePlacesDisponibles: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
     }
-    
     /**
      * Marque une offre comme effectuée et met à jour son statut
      * @param offreId L'ID de l'offre

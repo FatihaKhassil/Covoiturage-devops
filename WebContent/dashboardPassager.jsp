@@ -305,6 +305,11 @@
                     </a>
                 </div>
                 <div class="nav-item">
+                    <a href="Passager?page=evaluations" class="<%= "evaluations".equals(currentPage) ? "active" : "" %>">
+                        ⭐ Évaluations Reçues
+                    </a>
+                </div>
+                <div class="nav-item">
                     <a href="Passager?page=profil" class="<%= "profil".equals(currentPage) ? "active" : "" %>">
                         👤 Mon Profil
                     </a>
@@ -352,6 +357,10 @@
                 } else if ("historique".equals(currentPage)) {
             %>
                 <jsp:include page="historiquePassager.jsp" />
+            <%
+                } else if ("evaluations".equals(currentPage)) {
+            %>
+                <jsp:include page="evaluationsPassager.jsp" />
             <%
                 } else if ("profil".equals(currentPage)) {
             %>

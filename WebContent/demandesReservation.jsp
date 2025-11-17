@@ -1,12 +1,30 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="models.Conducteur, models.Reservation, models.Passager, models.Offre, java.util.List, java.text.SimpleDateFormat" %>
+<%@ page import="models.Conducteur, models.Reservation, models.Passager, models.Offre, models.Evaluation, java.util.List, java.text.SimpleDateFormat" %>
 <%
     Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
+    
+    // ✅ CORRECTION : Récupérer les messages AVANT de les supprimer
+    String success = (String) session.getAttribute("success");
+    String error = (String) session.getAttribute("error");
+    
+    // ✅ Supprimer les messages APRÈS les avoir récupérés
+    if (success != null) {
+        session.removeAttribute("success");
+    }
+    if (error != null) {
+        session.removeAttribute("error");
+    }
     
     List<Reservation> enAttente = (List<Reservation>) request.getAttribute("enAttente");
     List<Reservation> confirmees = (List<Reservation>) request.getAttribute("confirmees");
     List<Reservation> annulees = (List<Reservation>) request.getAttribute("annulees");
     List<Reservation> terminees = (List<Reservation>) request.getAttribute("terminees");
+    
+    // Récupérer la map des évaluations existantes
+    java.util.Map<Long, Evaluation> evaluationsExistantes = (java.util.Map<Long, Evaluation>) request.getAttribute("evaluationsExistantes");
+    if (evaluationsExistantes == null) {
+        evaluationsExistantes = new java.util.HashMap<>();
+    }
     
     Integer nbEnAttente = (Integer) request.getAttribute("nbEnAttente");
     Integer nbConfirmees = (Integer) request.getAttribute("nbConfirmees");
@@ -26,6 +44,39 @@
 %>
 
 <style>
+    /* Styles pour les alertes */
+    .alert {
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        font-weight: 500;
+        border: 1px solid;
+    }
+    
+    .alert-success {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+        border-color: #c3e6cb;
+    }
+    
+    .alert-error {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        color: #721c24;
+        border-color: #f5c6cb;
+    }
+    
+    .alert i {
+        font-size: 18px;
+    }
+    
+    .alert-success i {
+        color: #28a745;
+    }
+    
+    .alert-error i {
+        color: #dc3545;
+    }
+
     .demandes-stats {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -322,6 +373,32 @@
         background: #cce5ff;
     }
     
+    .btn-terminer {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    .btn-terminer:hover {
+        background: #bee5eb;
+        transform: translateY(-2px);
+    }
+    
+    .btn-evaluer {
+        background: #fff3cd;
+        color: #856404;
+    }
+    
+    .btn-evaluer:hover {
+        background: #ffeaa7;
+        transform: translateY(-2px);
+    }
+    
+    .btn-evaluated {
+        background: #e2e3e5;
+        color: #6c757d;
+        cursor: not-allowed;
+    }
+    
     .empty-demandes {
         text-align: center;
         padding: 60px 20px;
@@ -351,6 +428,251 @@
     .contact-info strong {
         color: #0066cc;
     }
+    
+    .evaluation-info {
+        background: #d4edda;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-size: 14px;
+        color: #155724;
+    }
+    
+    /* Styles améliorés pour l'affichage des évaluations */
+    .evaluation-display {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        border-left: 4px solid #28a745;
+    }
+    
+    .evaluation-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    
+    .evaluation-note {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .stars-display {
+        display: flex;
+        gap: 2px;
+    }
+    
+    .star-filled {
+        color: #ffc107;
+        font-size: 18px;
+    }
+    
+    .star-empty {
+        color: #ddd;
+        font-size: 18px;
+    }
+    
+    .evaluation-comment {
+        font-size: 14px;
+        color: #495057;
+        line-height: 1.5;
+        font-style: italic;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .evaluation-date {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+    }
+
+    /* Styles pour le modal d'évaluation */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.active {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
+    }
+    
+    .modal-header h3 {
+        font-size: 22px;
+        color: #2c3e50;
+        margin: 0;
+    }
+    
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 28px;
+        cursor: pointer;
+        color: #6c757d;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        margin-bottom: 20px;
+    }
+    
+    .modal-body p {
+        color: #495057;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+    
+    .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+    
+    .rating-container {
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    
+    .rating-label {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 15px;
+        display: block;
+    }
+    
+    .rating-stars {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        margin-bottom: 10px;
+    }
+    
+    .star {
+        background: none;
+        border: none;
+        font-size: 40px;
+        cursor: pointer;
+        transition: all 0.2s;
+        padding: 5px;
+        color: #ddd;
+    }
+    
+    .star:hover {
+        transform: scale(1.2);
+    }
+    
+    .star.active {
+        color: #ffc107;
+        text-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+    }
+    
+    .star.hover {
+        color: #ffc107;
+    }
+    
+    .rating-text {
+        font-size: 14px;
+        color: #6c757d;
+        margin-top: 5px;
+        min-height: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+    
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        resize: vertical;
+        font-family: inherit;
+        font-size: 14px;
+    }
+    
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+    }
+    
+    .btn {
+        padding: 12px 24px;
+        border-radius: 6px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #5a6fd8;
+        transform: translateY(-1px);
+    }
+    
+    .btn-complete {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-complete:hover {
+        background: #218838;
+    }
 </style>
 
 <div class="top-bar">
@@ -358,6 +680,31 @@
         <h1>Demandes de Réservation</h1>
         <div class="breadcrumb">Accueil / Demandes</div>
     </div>
+</div>
+
+<!-- ✅ CORRECTION : Section des messages d'alerte -->
+<div style="margin-bottom: 20px;">
+    <% if (success != null) { %>
+        <div class="alert alert-success">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>Succès !</strong> <%= success %>
+                </div>
+            </div>
+        </div>
+    <% } %>
+    
+    <% if (error != null) { %>
+        <div class="alert alert-error">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Information</strong> <%= error %>
+                </div>
+            </div>
+        </div>
+    <% } %>
 </div>
 
 <!-- Statistiques des demandes -->
@@ -422,7 +769,8 @@
                             <div class="passager-details">
                                 <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
                                 <div class="passager-rating">
-                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                    <%= generateStarsDisplay(passager != null ? passager.getNoteMoyenne() : 0.0) %>
+                                    <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
                                 </div>
                                 <div class="demande-time">🕒 <%= dateTimeFormat.format(reservation.getDateReservation()) %></div>
                             </div>
@@ -503,7 +851,8 @@
                             <div class="passager-details">
                                 <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
                                 <div class="passager-rating">
-                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                    <%= generateStarsDisplay(passager != null ? passager.getNoteMoyenne() : 0.0) %>
+                                    <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
                                 </div>
                                 <div class="demande-time">✅ Confirmée le <%= dateFormat.format(reservation.getDateReservation()) %></div>
                             </div>
@@ -542,6 +891,9 @@
                     <% } %>
                     
                     <div class="demande-actions">
+                        <button class="btn-action btn-terminer" onclick="terminerReservation(<%= reservation.getIdReservation() %>)">
+                            🎯 Terminer le trajet
+                        </button>
                         <% if (passager != null && passager.getTelephone() != null) { %>
                             <a href="tel:<%= passager.getTelephone() %>" class="btn-action btn-contact" style="text-decoration: none;">
                                 📞 Appeler
@@ -623,6 +975,10 @@
                     initiales = passager.getPrenom().substring(0, 1).toUpperCase() + 
                                passager.getNom().substring(0, 1).toUpperCase();
                 }
+                
+                // Vérifier si une évaluation existe déjà pour cette réservation
+                boolean dejaEvalue = evaluationsExistantes.containsKey(reservation.getIdReservation());
+                Evaluation evaluation = evaluationsExistantes.get(reservation.getIdReservation());
             %>
                 <div class="demande-card terminee">
                     <div class="demande-header">
@@ -631,7 +987,8 @@
                             <div class="passager-details">
                                 <h4><%= passager != null ? passager.getPrenom() + " " + passager.getNom() : "N/A" %></h4>
                                 <div class="passager-rating">
-                                    ⭐ <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
+                                    <%= generateStarsDisplay(passager != null ? passager.getNoteMoyenne() : 0.0) %>
+                                    <%= String.format("%.1f", passager != null ? passager.getNoteMoyenne() : 0.0) %>/5
                                 </div>
                                 <div class="demande-time">🎯 Trajet terminé</div>
                             </div>
@@ -662,13 +1019,94 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <% if (dejaEvalue && evaluation != null) { %>
+                        <div class="evaluation-display">
+                            <div class="evaluation-header">
+                                <div class="evaluation-note">Votre évaluation</div>
+                                <div class="stars-display">
+                                    <%= generateStarsDisplay(evaluation.getNote()) %>
+                                </div>
+                            </div>
+                            <% if (evaluation.getCommentaire() != null && !evaluation.getCommentaire().trim().isEmpty()) { %>
+                                <div class="evaluation-comment">
+                                    "<%= evaluation.getCommentaire() %>"
+                                </div>
+                            <% } %>
+                            <div class="evaluation-date">
+                                Évalué le <%= dateFormat.format(evaluation.getDateEvaluation()) %>
+                            </div>
+                        </div>
+                    <% } %>
+                    
+                    <div class="demande-actions">
+                        <% if (!dejaEvalue) { %>
+                            <button class="btn-action btn-evaluer" 
+                                    onclick="ouvrirEvaluation(<%= reservation.getIdReservation() %>, <%= passager != null ? passager.getId() : "0" %>)">
+                                ⭐ Évaluer le passager
+                            </button>
+                        <% } else { %>
+                            <button class="btn-action btn-evaluated" disabled>
+                                ✅ Déjà évalué
+                            </button>
+                        <% } %>
+                    </div>
                 </div>
             <% } %>
         <% } %>
     </div>
 </div>
 
+<!-- Modal d'évaluation -->
+<div id="evaluerModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Évaluer le Passager</h3>
+            <button class="close-modal" onclick="closeEvaluerModal()">&times;</button>
+        </div>
+        <form method="POST" action="Conducteur" id="evaluationForm">
+            <input type="hidden" name="action" value="evaluerPassager">
+            <input type="hidden" name="reservationId" id="evalReservationId">
+            <input type="hidden" name="idPassager" id="evalPassagerId">
+            
+            <div class="modal-body">
+                <div class="rating-container">
+                    <span class="rating-label">Donnez une note de 1 à 5 étoiles</span>
+                    <div class="rating-stars">
+                        <% for (int i = 1; i <= 5; i++) { %>
+                            <button type="button" class="star" data-value="<%= i %>" 
+                                    onmouseover="hoverStar(<%= i %>)" 
+                                    onmouseout="resetStars()" 
+                                    onclick="setNote(<%= i %>)">
+                                ⭐
+                            </button>
+                        <% } %>
+                    </div>
+                    <div class="rating-text" id="ratingText">Sélectionnez une note</div>
+                    <input type="hidden" name="note" id="noteInput" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="commentaire">Commentaire (optionnel)</label>
+                    <textarea name="commentaire" id="commentaire" rows="4" 
+                              placeholder="Partagez votre expérience avec ce passager..."></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="closeEvaluerModal()">Annuler</button>
+                <button type="submit" class="btn btn-complete" id="submitEvaluation" disabled>
+                    Envoyer l'évaluation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    let currentNote = 0;
+    let currentHover = 0;
+
     function showTab(tabName) {
         // Masquer tous les onglets
         document.querySelectorAll('.tab-content').forEach(tab => {
@@ -695,6 +1133,29 @@
             actionInput.type = 'hidden';
             actionInput.name = 'action';
             actionInput.value = 'confirmerReservation';
+            
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'reservationId';
+            idInput.value = id;
+            
+            form.appendChild(actionInput);
+            form.appendChild(idInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    }
+    
+    function terminerReservation(id) {
+        if (confirm('Marquer ce trajet comme terminé ? Cette action est irréversible.')) {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = 'Conducteur';
+            
+            const actionInput = document.createElement('input');
+            actionInput.type = 'hidden';
+            actionInput.name = 'action';
+            actionInput.value = 'terminerReservation';
             
             const idInput = document.createElement('input');
             idInput.type = 'hidden';
@@ -737,4 +1198,122 @@
             form.submit();
         }
     }
+    
+    function ouvrirEvaluation(reservationId, passagerId) {
+        document.getElementById('evalReservationId').value = reservationId;
+        document.getElementById('evalPassagerId').value = passagerId;
+        document.getElementById('evaluerModal').classList.add('active');
+        resetEvaluationForm();
+    }
+    
+    function closeEvaluerModal() {
+        document.getElementById('evaluerModal').classList.remove('active');
+    }
+    
+    function resetEvaluationForm() {
+        currentNote = 0;
+        currentHover = 0;
+        document.getElementById('noteInput').value = '';
+        document.getElementById('commentaire').value = '';
+        document.getElementById('submitEvaluation').disabled = true;
+        resetStars();
+        updateRatingText();
+    }
+    
+    function hoverStar(note) {
+        currentHover = note;
+        updateStarsDisplay();
+        updateRatingText();
+    }
+    
+    function resetStars() {
+        currentHover = 0;
+        updateStarsDisplay();
+        updateRatingText();
+    }
+    
+    function setNote(note) {
+        currentNote = note;
+        document.getElementById('noteInput').value = note;
+        document.getElementById('submitEvaluation').disabled = false;
+        updateStarsDisplay();
+        updateRatingText();
+    }
+    
+    function updateStarsDisplay() {
+        const stars = document.querySelectorAll('.star');
+        const displayNote = currentHover || currentNote;
+        
+        stars.forEach((star, index) => {
+            const starValue = index + 1;
+            if (starValue <= displayNote) {
+                star.classList.add('active');
+                if (currentHover > 0 && currentNote === 0) {
+                    star.classList.add('hover');
+                } else {
+                    star.classList.remove('hover');
+                }
+            } else {
+                star.classList.remove('active');
+                star.classList.remove('hover');
+            }
+        });
+    }
+    
+    function updateRatingText() {
+        const ratingText = document.getElementById('ratingText');
+        const displayNote = currentHover || currentNote;
+        
+        if (displayNote === 0) {
+            ratingText.textContent = 'Sélectionnez une note';
+            ratingText.style.color = '#6c757d';
+        } else {
+            const texts = {
+                1: 'Mauvais - Expérience très décevante',
+                2: 'Moyen - Quelques problèmes',
+                3: 'Bien - Expérience correcte',
+                4: 'Très bien - Expérience positive',
+                5: 'Excellent - Expérience exceptionnelle'
+            };
+            ratingText.textContent = texts[displayNote] || `Note: ${displayNote}/5`;
+            ratingText.style.color = '#28a745';
+        }
+    }
+    
+    // Fermer le modal en cliquant à l'extérieur
+    window.onclick = function(event) {
+        const modal = document.getElementById('evaluerModal');
+        if (event.target == modal) {
+            closeEvaluerModal();
+        }
+    }
+    
+    // Empêcher la soumission du formulaire si aucune note n'est sélectionnée
+    document.getElementById('evaluationForm').addEventListener('submit', function(e) {
+        if (currentNote === 0) {
+            e.preventDefault();
+            alert('Veuillez sélectionner une note avant de soumettre l\'évaluation.');
+        }
+    });
 </script>
+
+<%!
+    // Méthode helper pour générer l'affichage des étoiles
+    public String generateStarsDisplay(double note) {
+        StringBuilder stars = new StringBuilder();
+        int fullStars = (int) note;
+        boolean hasHalfStar = (note - fullStars) >= 0.5;
+        
+        for (int i = 1; i <= 5; i++) {
+            if (i <= fullStars) {
+                stars.append("<span class='star-filled'>★</span>");
+            } else if (i == fullStars + 1 && hasHalfStar) {
+                stars.append("<span class='star-filled'>★</span>");
+            } else {
+                stars.append("<span class='star-empty'>☆</span>");
+            }
+        }
+        
+        return stars.toString();
+    }
+%>

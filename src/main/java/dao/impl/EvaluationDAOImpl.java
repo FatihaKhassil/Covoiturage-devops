@@ -17,29 +17,67 @@ public class EvaluationDAOImpl implements EvaluationDAO {
 
     // ✅ Ajouter une évaluation
     @Override
-    public Long create(Evaluation evaluation) throws SQLException {
-        String sql = "INSERT INTO evaluation (id_offre, id_evaluateur, id_evalue, note, commentaire, date_evaluation) " +
-                     "VALUES (?, ?, ?, ?, ?, ?)";
-
+    public Long create(Evaluation evaluation) {
+        String sql = "INSERT INTO evaluation (id_offre, id_evaluateur, id_evalue, note, commentaire, date_evaluation, type_evaluateur) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        
         try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setLong(1, evaluation.getIdOffre());
             stmt.setLong(2, evaluation.getIdEvaluateur());
             stmt.setLong(3, evaluation.getIdEvalue());
             stmt.setInt(4, evaluation.getNote());
             stmt.setString(5, evaluation.getCommentaire());
-            stmt.setDate(6, new java.sql.Date(evaluation.getDateEvaluation().getTime()));
-
-            stmt.executeUpdate();
-
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
+            stmt.setTimestamp(6, new Timestamp(evaluation.getDateEvaluation().getTime()));
+            stmt.setString(7, evaluation.getTypeEvaluateur());
+            
+            int affectedRows = stmt.executeUpdate();
+            
+            if (affectedRows > 0) {
+                ResultSet rs = stmt.getGeneratedKeys();
                 if (rs.next()) {
                     return rs.getLong(1);
                 }
             }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
         return null;
     }
 
+    public void debugEvaluationsForPassager(Long passagerId) throws SQLException {
+        String sql = "SELECT * FROM evaluation WHERE id_evalue = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, passagerId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                System.out.println("=== DEBUG ÉVALUATIONS POUR PASSAGER " + passagerId + " ===");
+                int count = 0;
+                while (rs.next()) {
+                    count++;
+                    System.out.println("Évaluation " + count + ":");
+                    System.out.println("  ID: " + rs.getLong("id_evaluation"));
+                    System.out.println("  Note: " + rs.getInt("note"));
+                    System.out.println("  Commentaire: " + rs.getString("commentaire"));
+                    System.out.println("  Type: " + rs.getString("type_evaluateur"));
+                    System.out.println("  Date: " + rs.getDate("date_evaluation"));
+                }
+                System.out.println("Total: " + count + " évaluation(s) trouvée(s)");
+            }
+        }
+    }
+    @Override
+    public int countEvaluationsByEvalue(Long evalueId) throws SQLException {
+        String sql = "SELECT COUNT(*) AS total FROM evaluation WHERE id_evalue = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, evalueId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("total");
+                }
+            }
+        }
+        return 0;
+    }
+    
     // ✅ Trouver une évaluation par ID
     @Override
     public Evaluation findById(Long id) throws SQLException {
@@ -74,7 +112,14 @@ public class EvaluationDAOImpl implements EvaluationDAO {
     @Override
     public List<Evaluation> findByEvalue(Long evalueId) throws SQLException {
         List<Evaluation> evaluations = new ArrayList<>();
-        String sql = "SELECT * FROM evaluation WHERE id_evalue = ? ORDER BY date_evaluation DESC";
+        String sql = "SELECT e.*, " +
+                    "u.nom as evaluateur_nom, u.prenom as evaluateur_prenom, " +
+                    "o.ville_depart, o.ville_arrivee, o.date_depart " +
+                    "FROM evaluation e " +
+                    "JOIN utilisateur u ON e.id_evaluateur = u.id_utilisateur " +
+                    "JOIN offre o ON e.id_offre = o.id_offre " +
+                    "WHERE e.id_evalue = ? " +
+                    "ORDER BY e.date_evaluation DESC";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setLong(1, evalueId);
@@ -86,7 +131,6 @@ public class EvaluationDAOImpl implements EvaluationDAO {
         }
         return evaluations;
     }
-
     // ✅ Lister les évaluations faites par un utilisateur
     @Override
     public List<Evaluation> findByEvaluateur(Long evaluateurId) throws SQLException {
@@ -141,39 +185,73 @@ public class EvaluationDAOImpl implements EvaluationDAO {
         }
         return 0.0;
     }
-
-    // ✅ Compter le nombre d’évaluations reçues
-    @Override
-    public int countEvaluationsByEvalue(Long evalueId) throws SQLException {
-        String sql = "SELECT COUNT(*) AS total FROM evaluation WHERE id_evalue = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setLong(1, evalueId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("total");
-                }
-            }
-        }
-        return 0;
-    }
+  
 
     // ✅ Vérifier si une évaluation existe déjà pour une offre donnée
+ // Dans EvaluationDAOImpl
     @Override
-    public boolean existsForOffre(Long idOffre, Long idEvaluateur, Long idEvalue) throws SQLException {
-        String sql = "SELECT COUNT(*) AS total FROM evaluation WHERE id_offre = ? AND id_evaluateur = ? AND id_evalue = ?";
+    public boolean existsForOffre(Long idOffre, Long idEvaluateur, Long idEvalue) {
+        String sql = "SELECT COUNT(*) FROM evaluation WHERE id_offre = ? AND id_evaluateur = ? AND id_evalue = ?";
+        
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setLong(1, idOffre);
             stmt.setLong(2, idEvaluateur);
             stmt.setLong(3, idEvalue);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("total") > 0;
-                }
+            
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int count = rs.getInt(1);
+                System.out.println("DEBUG existsForOffre - Offre: " + idOffre + ", Evaluateur: " + idEvaluateur + ", Evalue: " + idEvalue + ", Count: " + count);
+                return count > 0;
             }
+        } catch (SQLException e) {
+            System.err.println("ERREUR dans existsForOffre: " + e.getMessage());
+            e.printStackTrace();
         }
         return false;
     }
-
+    @Override
+    public Evaluation findByReservationAndEvaluateur(Long reservationId, Long evaluateurId, String typeEvaluateur) {
+        String sql = "SELECT e.* FROM evaluations e " +
+                    "JOIN reservations r ON e.id_offre = r.offre_id " +
+                    "WHERE r.id_reservation = ? AND e.evaluateur_id = ? AND e.type_evaluateur = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, reservationId);
+            stmt.setLong(2, evaluateurId);
+            stmt.setString(3, typeEvaluateur);
+            
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return mapResultSetToEvaluation(rs);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
+    @Override
+    public boolean evaluationExistsForReservation(Long reservationId, Long evaluateurId, String typeEvaluateur) {
+        String sql = "SELECT COUNT(*) FROM evaluations e " +
+                    "JOIN reservations r ON e.id_offre = r.offre_id " +
+                    "WHERE r.id_reservation = ? AND e.evaluateur_id = ? AND e.type_evaluateur = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, reservationId);
+            stmt.setLong(2, evaluateurId);
+            stmt.setString(3, typeEvaluateur);
+            
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
     // ✅ Mapping ResultSet → Objet Evaluation
     private Evaluation mapResultSetToEvaluation(ResultSet rs) throws SQLException {
         Evaluation evaluation = new Evaluation();
@@ -183,7 +261,23 @@ public class EvaluationDAOImpl implements EvaluationDAO {
         evaluation.setIdEvalue(rs.getLong("id_evalue"));
         evaluation.setNote(rs.getInt("note"));
         evaluation.setCommentaire(rs.getString("commentaire"));
-        evaluation.setDateEvaluation(rs.getDate("date_evaluation"));
+        evaluation.setDateEvaluation(rs.getTimestamp("date_evaluation"));
+        evaluation.setTypeEvaluateur(rs.getString("type_evaluateur"));
+        
+        // Informations supplémentaires pour l'affichage
+        evaluation.setEvaluateurNom(rs.getString("evaluateur_nom"));
+        evaluation.setEvaluateurPrenom(rs.getString("evaluateur_prenom"));
+        evaluation.setVilleDepart(rs.getString("ville_depart"));
+        evaluation.setVilleArrivee(rs.getString("ville_arrivee"));
+        evaluation.setDateDepart(rs.getDate("date_depart"));
+        
         return evaluation;
     }
+
+	@Override
+	public Evaluation findByOffreAndEvaluateur(Long idOffre, Long idUtilisateur) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }
