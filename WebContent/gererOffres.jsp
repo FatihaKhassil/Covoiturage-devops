@@ -390,7 +390,6 @@
                 String statusClass = "";
                 String statusLabel = "";
                 
-                // Mapper les statuts de la base de données
                 if ("EN_ATTENTE".equals(statut)) {
                     statusClass = "status-en-attente";
                     statusLabel = "En Attente";
@@ -445,20 +444,34 @@
                         </div>
                     <% } %>
                     
+                    <!-- ✅ SECTION CORRIGÉE : Boutons d'action -->
                     <div class="offre-actions">
                         <% if ("VALIDEE".equals(statut)) { %>
+                            <!-- ✅ BOUTON TERMINER LE TRAJET -->
                             <form method="POST" action="Conducteur" style="display: inline;">
-                                <input type="hidden" name="action" value="marquerEffectuee">
+                                <input type="hidden" name="action" value="terminerTrajet">
                                 <input type="hidden" name="offreId" value="<%= offre.getIdOffre() %>">
-                                <button type="submit" class="btn btn-complete" onclick="return confirm('Marquer cette offre comme effectuée ?')">
-                                    ✅ Marquer effectuée
+                                <button type="submit" class="btn btn-complete" 
+                                        onclick="return confirm('⚠ Terminer ce trajet?\n\n' +
+                                        'Cela va:\n' +
+                                        '- Marquer le trajet comme TERMINÉ\n' +
+                                        '- Marquer toutes les réservations confirmées comme TERMINÉES\n' +
+                                        '- Permettre les évaluations mutuelles\n\n' +
+                                        'Cette action est irréversible!')">
+                                    🏁 Terminer le trajet
                                 </button>
                             </form>
                             <button class="btn btn-cancel" onclick="cancelOffre(<%= offre.getIdOffre() %>)">
                                 ❌ Annuler
                             </button>
+                        <% } else if ("TERMINEE".equals(statut)) { %>
+                            <span style="color: #28a745; font-size: 14px;">
+                                ✅ Trajet terminé - Évaluations disponibles
+                            </span>
                         <% } else if ("EN_ATTENTE".equals(statut)) { %>
-                            <span style="color: #856404; font-size: 14px;">⏳ En attente de validation par l'administrateur</span>
+                            <span style="color: #856404; font-size: 14px;">
+                                ⏳ En attente de validation par l'administrateur
+                            </span>
                         <% } %>
                     </div>
                 </div>
@@ -503,5 +516,5 @@
         if (event.target == modal) {
             closeModal();
         }
-    }
+    }
 </script>

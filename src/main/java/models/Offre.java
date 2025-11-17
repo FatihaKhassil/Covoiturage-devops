@@ -49,7 +49,11 @@ public class Offre {
         return conducteur;
     }
     
-    public void mettreAJourPlaces(Integer nbPlaces) {
+    public void setConducteur(Conducteur conducteur) {
+		this.conducteur = conducteur;
+	}
+
+	public void mettreAJourPlaces(Integer nbPlaces) {
         this.placesDisponibles -= nbPlaces;
     }
     

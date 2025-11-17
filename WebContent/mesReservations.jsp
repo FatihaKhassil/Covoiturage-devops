@@ -1,13 +1,16 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="models.Reservation, java.util.List, java.text.SimpleDateFormat" %>
+<%@ page import="models.Passager" %>
 <%@ page import="models.Conducteur" %>
 <%
+    // Récupération des attributs passés par le PassagerServlet.afficherReservations
     List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
     Integer nbEnAttente = (Integer) request.getAttribute("nbEnAttente");
     Integer nbConfirmees = (Integer) request.getAttribute("nbConfirmees");
     Integer nbAnnulees = (Integer) request.getAttribute("nbAnnulees");
     Integer nbTerminees = (Integer) request.getAttribute("nbTerminees");
     
+    // Initialisation des compteurs si non fournis (pour éviter les erreurs d'affichage)
     if (nbEnAttente == null) nbEnAttente = 0;
     if (nbConfirmees == null) nbConfirmees = 0;
     if (nbAnnulees == null) nbAnnulees = 0;
@@ -18,6 +21,9 @@
 %>
 
 <style>
+    /* ------------------------------------------- */
+    /* Styles pour la grille de la liste */
+    /* ------------------------------------------- */
     .reservations-grid {
         display: grid;
         gap: 20px;
@@ -47,6 +53,7 @@
         height: 100%;
     }
     
+    /* Barres de statut de couleur */
     .reservation-card.en-attente::before {
         background: #ffc107;
     }
@@ -63,6 +70,9 @@
         background: #dc3545;
     }
     
+    /* ------------------------------------------- */
+    /* Styles pour l'en-tête et le statut */
+    /* ------------------------------------------- */
     .reservation-header {
         display: flex;
         justify-content: space-between;
@@ -101,6 +111,7 @@
         letter-spacing: 0.5px;
     }
     
+    /* Couleurs des badges de statut */
     .status-en-attente {
         background: #fff3cd;
         color: #856404;
@@ -121,6 +132,9 @@
         color: #721c24;
     }
     
+    /* ------------------------------------------- */
+    /* Détails et Actions */
+    /* ------------------------------------------- */
     .reservation-details {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -194,6 +208,9 @@
         color: #495057;
     }
     
+    /* ------------------------------------------- */
+    /* Modal (inchangé) */
+    /* ------------------------------------------- */
     .modal {
         display: none;
         position: fixed;
@@ -250,6 +267,43 @@
         gap: 10px;
         justify-content: flex-end;
     }
+    /* Ajout des styles des cartes de statistiques qui manquaient */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .stat-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .stat-card-header h3 {
+        font-size: 16px;
+        color: #7f8c8d;
+        margin: 0;
+    }
+    .stat-icon {
+        font-size: 24px;
+    }
+    .stat-card .value {
+        font-size: 32px;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-top: 10px;
+    }
+    .stat-card .label {
+        font-size: 14px;
+        color: #95a5a6;
+    }
 </style>
 
 <div class="top-bar">
@@ -259,7 +313,6 @@
     </div>
 </div>
 
-<!-- Statistiques -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-card-header">
@@ -298,7 +351,6 @@
     </div>
 </div>
 
-<!-- Liste des réservations -->
 <div class="content-section">
     <div class="section-header">
         <h2>Toutes mes Réservations (<%= reservations != null ? reservations.size() : 0 %>)</h2>
@@ -315,12 +367,15 @@
         </div>
     <% } else { %>
         <div class="reservations-grid">
-            <% for (Reservation reservation : reservations) { 
+            <% 
+            // Boucle sur toutes les réservations (y compris EN_ATTENTE, car le Servlet doit les fournir)
+            for (Reservation reservation : reservations) { 
                 String statut = reservation.getStatut();
                 String statusClass = "";
                 String statusLabel = "";
                 String cardClass = "";
                 
+                // Détermination des classes CSS et des labels basés sur le statut de la BD
                 if ("EN_ATTENTE".equals(statut)) {
                     statusClass = "status-en-attente";
                     statusLabel = "En Attente";
@@ -369,6 +424,7 @@
                             <span class="detail-label">Conducteur</span>
                             <span class="detail-value">
                                 <% 
+                                    // Vérification sécurisée du conducteur
                                     Conducteur conducteur = reservation.getOffre().getConducteur();
                                     if (conducteur != null && conducteur.getPrenom() != null) {
                                         out.print(conducteur.getPrenom());
@@ -387,14 +443,14 @@
                     <% } %>
                     
                     <% if ("EN_ATTENTE".equals(statut)) { %>
-                        <div style="margin-top: 15px; display: flex; align-items: center; gap: 15px;">
+                        <div style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between;">
                             <span style="color: #856404; font-size: 14px;">⏳ En attente de confirmation du conducteur</span>
                             <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
                                 ❌ Annuler
                             </button>
                         </div>
                     <% } else if ("CONFIRMEE".equals(statut)) { %>
-                        <div style="margin-top: 15px;">
+                        <div style="margin-top: 15px; text-align: right;">
                             <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
                                 ❌ Annuler la Réservation
                             </button>
@@ -406,7 +462,6 @@
     <% } %>
 </div>
 
-<!-- Modal de confirmation d'annulation -->
 <div id="cancelModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -417,7 +472,7 @@
             <p>Êtes-vous sûr de vouloir annuler cette réservation ? Cette action est irréversible.</p>
         </div>
         <div class="modal-actions">
-            <button class="btn-search" onclick="closeCancelModal()">Retour</button>
+            <button class="btn btn-secondary" onclick="closeCancelModal()">Retour</button> 
             <form method="POST" action="Passager" style="display: inline;">
                 <input type="hidden" name="action" value="annulerReservation">
                 <input type="hidden" name="reservationId" id="cancelReservationId">
@@ -428,19 +483,40 @@
 </div>
 
 <script>
+    // Fonction appelée par le bouton Annuler de la carte de réservation
     function cancelReservation(id) {
-        document.getElementById('cancelReservationId').value = id;
-        document.getElementById('cancelModal').classList.add('active');
+        document.getElementById('cancelReservationId').value = id; // Met l'ID de la résa dans le formulaire du modal
+        document.getElementById('cancelModal').classList.add('active'); // Affiche le modal
     }
     
+    // Ferme le modal
     function closeCancelModal() {
         document.getElementById('cancelModal').classList.remove('active');
     }
     
+    // Ferme le modal si l'utilisateur clique en dehors
     window.onclick = function(event) {
         const modal = document.getElementById('cancelModal');
         if (event.target == modal) {
             closeCancelModal();
+        }
+    }
+    
+    // Gère l'affichage des messages de succès/erreur après redirection du Servlet
+    window.onload = function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const successMsg = urlParams.get('successMsg');
+        const errorMsg = urlParams.get('errorMsg');
+
+        // Note: Vous devriez implémenter un système d'alerte plus joli ou un bandeau pour afficher ces messages.
+        if (successMsg) {
+            alert('Succès : ' + successMsg);
+            // Optionnel: retirer le paramètre de l'URL pour ne pas réafficher le message
+            history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
+        if (errorMsg) {
+            alert('Erreur : ' + errorMsg);
+            history.replaceState({}, document.title, window.location.pathname + window.location.hash);
         }
     }
 </script>

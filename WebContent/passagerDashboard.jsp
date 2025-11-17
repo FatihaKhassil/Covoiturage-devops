@@ -4,14 +4,19 @@
     Passager passager = (Passager) session.getAttribute("utilisateur");
     
     Integer totalReservations = (Integer) request.getAttribute("totalReservations");
-    Integer reservationsActives = (Integer) request.getAttribute("reservationsActives");
+    Integer reservationsEnAttente = (Integer) request.getAttribute("reservationsEnAttente");
+    Integer reservationsConfirmees = (Integer) request.getAttribute("reservationsConfirmees");
     Integer reservationsTerminees = (Integer) request.getAttribute("reservationsTerminees");
+    Integer reservationsAnnulees = (Integer) request.getAttribute("reservationsAnnulees");
     Integer offresDisponibles = (Integer) request.getAttribute("offresDisponibles");
     List<Reservation> dernieresReservations = (List<Reservation>) request.getAttribute("dernieresReservations");
     
+    // Initialisation des valeurs par défaut
     if (totalReservations == null) totalReservations = 0;
-    if (reservationsActives == null) reservationsActives = 0;
+    if (reservationsEnAttente == null) reservationsEnAttente = 0;
+    if (reservationsConfirmees == null) reservationsConfirmees = 0;
     if (reservationsTerminees == null) reservationsTerminees = 0;
+    if (reservationsAnnulees == null) reservationsAnnulees = 0;
     if (offresDisponibles == null) offresDisponibles = 0;
     
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
@@ -25,7 +30,7 @@
     </div>
 </div>
 
-<!-- Stats Cards -->
+<!-- Stats Cards - 5 cartes au lieu de 4 -->
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-card-header">
@@ -38,33 +43,42 @@
     
     <div class="stat-card">
         <div class="stat-card-header">
-            <h3>Réservations Actives</h3>
-            <div class="stat-icon green">✅</div>
+            <h3>En Attente</h3>
+            <div class="stat-icon orange">⏳</div>
         </div>
-        <div class="value"><%= reservationsActives %></div>
-        <div class="label">En cours</div>
+        <div class="value"><%= reservationsEnAttente %></div>
+        <div class="label">En attente de confirmation</div>
     </div>
     
     <div class="stat-card">
         <div class="stat-card-header">
-            <h3>Trajets Effectués</h3>
+            <h3>Confirmées</h3>
+            <div class="stat-icon green">✅</div>
+        </div>
+        <div class="value"><%= reservationsConfirmees %></div>
+        <div class="label">Confirmées par le conducteur</div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <h3>Terminées</h3>
             <div class="stat-icon purple">🎯</div>
         </div>
         <div class="value"><%= reservationsTerminees %></div>
-        <div class="label">Terminés</div>
+        <div class="label">Trajets effectués</div>
     </div>
     
     <div class="stat-card">
         <div class="stat-card-header">
-            <h3>Offres Disponibles</h3>
-            <div class="stat-icon orange">🚗</div>
+            <h3>Annulées</h3>
+            <div class="stat-icon red">❌</div>
         </div>
-        <div class="value"><%= offresDisponibles %></div>
-        <div class="label">À réserver</div>
+        <div class="value"><%= reservationsAnnulees %></div>
+        <div class="label">Réservations annulées</div>
     </div>
 </div>
 
-<!-- Recent Activity -->
+<!-- Le reste du code reste identique -->
 <div class="content-section">
     <div class="section-header">
         <h2>Activité Récente</h2>
@@ -78,6 +92,13 @@
         </p>
     <% } else { %>
         <style>
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 20px;
+                margin-bottom: 30px;
+            }
+            
             .activity-list {
                 display: flex;
                 flex-direction: column;
@@ -133,6 +154,11 @@
                 font-weight: 600;
             }
             
+            .status-en-attente {
+                background: #fff3cd;
+                color: #856404;
+            }
+            
             .status-confirmee {
                 background: #d4edda;
                 color: #155724;
@@ -155,7 +181,10 @@
                 String statusClass = "";
                 String statusLabel = "";
                 
-                if ("CONFIRMEE".equals(statut)) {
+                if ("EN_ATTENTE".equals(statut)) {
+                    statusClass = "status-en-attente";
+                    statusLabel = "En Attente";
+                } else if ("CONFIRMEE".equals(statut)) {
                     statusClass = "status-confirmee";
                     statusLabel = "Confirmée";
                 } else if ("TERMINEE".equals(statut)) {
