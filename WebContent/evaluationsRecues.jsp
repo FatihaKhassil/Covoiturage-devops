@@ -7,37 +7,19 @@
 <%
     Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
     
-    // Gestion sécurisée des casts
-    List<Evaluation> evaluations = new ArrayList<>();
-    Integer totalEvaluations = 0;
-    Double noteMoyenne = 0.0;
-    int[] distributionNotes = new int[6];
+    // Récupération sécurisée des attributs
+    List<Evaluation> evaluations = (List<Evaluation>) request.getAttribute("evaluations");
+    Integer totalEvaluations = (Integer) request.getAttribute("totalEvaluations");
+    Double noteMoyenne = (Double) request.getAttribute("noteMoyenne");
+    int[] distributionNotes = (int[]) request.getAttribute("distributionNotes");
     
-    try {
-        evaluations = (List<Evaluation>) request.getAttribute("evaluations");
-    } catch (Exception e) {
-        evaluations = new ArrayList<>();
-    }
-    
-    try {
-        totalEvaluations = (Integer) request.getAttribute("totalEvaluations");
-    } catch (Exception e) {
-        totalEvaluations = 0;
-    }
-    
-    try {
-        noteMoyenne = (Double) request.getAttribute("noteMoyenne");
-    } catch (Exception e) {
-        noteMoyenne = 0.0;
-    }
-    
-    try {
-        distributionNotes = (int[]) request.getAttribute("distributionNotes");
-    } catch (Exception e) {
-        distributionNotes = new int[6];
-    }
+    if (evaluations == null) evaluations = new ArrayList<>();
+    if (totalEvaluations == null) totalEvaluations = 0;
+    if (noteMoyenne == null) noteMoyenne = 0.0;
+    if (distributionNotes == null) distributionNotes = new int[6];
     
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd MMMM yyyy");
+    SimpleDateFormat dateCourtFormat = new SimpleDateFormat("dd/MM/yyyy");
     
     // Calculer les pourcentages pour les barres de progression
     double[] pourcentages = new double[6];
@@ -64,13 +46,15 @@
         return etoiles.toString();
     }
     
-    private String getInitiales(String nomComplet) {
-        if (nomComplet == null || nomComplet.trim().isEmpty()) return "??";
-        String[] parties = nomComplet.split(" ");
-        if (parties.length >= 2) {
-            return (parties[0].charAt(0) + "" + parties[1].charAt(0)).toUpperCase();
+    private String getInitiales(String prenom, String nom) {
+        if (prenom == null && nom == null) return "??";
+        if (prenom != null && nom != null) {
+            return (prenom.substring(0, 1) + nom.substring(0, 1)).toUpperCase();
+        } else if (prenom != null) {
+            return prenom.substring(0, Math.min(2, prenom.length())).toUpperCase();
+        } else {
+            return nom.substring(0, Math.min(2, nom.length())).toUpperCase();
         }
-        return nomComplet.substring(0, Math.min(2, nomComplet.length())).toUpperCase();
     }
     
     private String formaterDate(java.util.Date date) {
@@ -85,9 +69,21 @@
     
     private String getCommentaireSecurise(String commentaire) {
         if (commentaire == null || commentaire.trim().isEmpty()) {
-            return "Aucun commentaire";
+            return "Aucun commentaire laissé";
         }
         return commentaire;
+    }
+    
+    private String getNomComplet(String prenom, String nom) {
+        if (prenom != null && nom != null) {
+            return prenom + " " + nom;
+        } else if (prenom != null) {
+            return prenom;
+        } else if (nom != null) {
+            return nom;
+        } else {
+            return "Passager";
+        }
     }
 %>
 
@@ -224,7 +220,7 @@
     
     .evaluation-card:hover {
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        transform: translateX(5px);
+        transform: translateY(-2px);
     }
     
     .evaluation-header {
@@ -249,7 +245,7 @@
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
     }
     
@@ -267,7 +263,7 @@
     .evaluation-rating {
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 10px;
     }
     
     .stars {
@@ -295,16 +291,22 @@
         align-items: center;
         gap: 8px;
         font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .trajet-date {
+        color: #6c757d;
+        font-size: 13px;
     }
     
     .evaluation-comment {
         color: #495057;
         line-height: 1.6;
         font-size: 15px;
-        font-style: italic;
         padding: 15px;
         background: white;
         border-radius: 8px;
+        border-left: 3px solid #e9ecef;
     }
     
     .evaluation-aspects {
@@ -417,26 +419,56 @@
         <p>Les évaluations des passagers apparaîtront ici après vos premiers trajets.</p>
     </div>
     <% } else { %>
-        <% for (Evaluation evaluation : evaluations) { %>
+        <% for (Evaluation evaluation : evaluations) { 
+            if (evaluation != null) {
+                String nomPassager = getNomComplet(evaluation.getEvaluateurPrenom(), evaluation.getEvaluateurNom());
+                String initiales = getInitiales(evaluation.getEvaluateurPrenom(), evaluation.getEvaluateurNom());
+        %>
         <div class="evaluation-card">
             <div class="evaluation-header">
                 <div class="evaluator-info">
                     <div class="evaluator-avatar">
-                        <%= getInitiales("Passager " + evaluation.getIdEvaluateur()) %>
+                        <%= initiales %>
                     </div>
                     <div class="evaluator-details">
-                        <h4>Passager #<%= evaluation.getIdEvaluateur() %></h4>
+                        <h4><%= nomPassager %></h4>
                         <div class="evaluation-date">🗓️ <%= formaterDate(evaluation.getDateEvaluation()) %></div>
                     </div>
                 </div>
                 <div class="evaluation-rating">
-                    <span class="stars"><%= genererEtoiles(evaluation.getNote()) %></span>
-                    <span class="rating-number"><%= evaluation.getNote() != null ? evaluation.getNote() : 0 %>.0</span>
+                    <span class="stars">
+                        <% 
+                            Integer note = evaluation.getNote();
+                            if (note != null) {
+                                out.print(genererEtoiles(note));
+                            } else {
+                                out.print("☆☆☆☆☆");
+                            }
+                        %>
+                    </span>
+                    <span class="rating-number">
+                        <%= note != null ? note : 0 %>.0
+                    </span>
                 </div>
             </div>
             
             <div class="evaluation-trajet">
-                <div class="trajet-route">📍 Offre #<%= evaluation.getIdOffre() %></div>
+                <% if (evaluation.getVilleDepart() != null && evaluation.getVilleArrivee() != null) { %>
+                    <div class="trajet-route">
+                        <span>📍</span>
+                        <span><%= evaluation.getVilleDepart() %> → <%= evaluation.getVilleArrivee() %></span>
+                    </div>
+                    <% if (evaluation.getDateDepart() != null) { %>
+                        <div class="trajet-date">
+                            Trajet du <%= dateCourtFormat.format(evaluation.getDateDepart()) %>
+                        </div>
+                    <% } %>
+                <% } else { %>
+                    <div class="trajet-route">
+                        <span>📍</span>
+                        <span>Trajet partagé</span>
+                    </div>
+                <% } %>
             </div>
             
             <div class="evaluation-comment">
@@ -462,8 +494,11 @@
                 </div>
             </div>
         </div>
-        <% } %>
-    <% } %>
+        <% 
+            } // fin du if evaluation != null
+        } // fin de la boucle for
+    } // fin du else 
+    %>
 </div>
 
 <script>

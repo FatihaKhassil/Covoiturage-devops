@@ -3,6 +3,9 @@ package dao;
 import models.Offre;
 import java.sql.SQLException;
 import java.util.List;
+
+import com.sun.jdi.connect.spi.Connection;
+
 import java.util.Date;
 
 public interface OffreDAO {
@@ -16,4 +19,7 @@ public interface OffreDAO {
     boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException;
     boolean delete(Long id) throws SQLException;
 	List<Offre> findAll() throws SQLException;
+    void updateStatutsAutomatiquement() throws SQLException;
+    Connection getConnection() throws SQLException;
+
 }

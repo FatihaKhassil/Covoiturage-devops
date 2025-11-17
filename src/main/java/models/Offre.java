@@ -42,8 +42,11 @@ public class Offre {
     }
     
     // Méthodes métier
-    public Boolean verifierDisponibilite(Integer nbPlaces) {
-        return this.placesDisponibles >= nbPlaces;
+    public boolean verifierDisponibilite(Integer placesDemandees) {
+        if (placesDemandees == null || placesDemandees <= 0) {
+            return false;
+        }
+        return this.placesDisponibles >= placesDemandees;
     }
     public Conducteur getConducteur() {
         return conducteur;
@@ -170,7 +173,11 @@ public class Offre {
         this.commentaire = commentaire;
     }
     
-    public Boolean getEstEffectuee() {
+    public void setConducteur(Conducteur conducteur) {
+		this.conducteur = conducteur;
+	}
+
+	public Boolean getEstEffectuee() {
         return estEffectuee;
     }
     

@@ -11,6 +11,8 @@ public class Reservation {
     private Date dateReservation;
     private String statut;
     private String messagePassager;
+    private Boolean estEvalue;
+    private Evaluation evaluation;
     
     // Constructeur par défaut
     public Reservation() {
@@ -113,4 +115,23 @@ public class Reservation {
     public void setMessagePassager(String messagePassager) {
         this.messagePassager = messagePassager;
     }
-}
+    public Boolean getEstEvalue() {
+        return estEvalue;
+    }
+    
+    public void setEstEvalue(Boolean estEvalue) {
+        this.estEvalue = estEvalue;
+    }
+    
+    public Evaluation getEvaluation() {
+        return evaluation;
+    }
+    
+    public void setEvaluation(Evaluation evaluation) {
+        this.evaluation = evaluation;
+    }
+
+	public void setEstEvalue(boolean dejaEvalue) {
+		// TODO Auto-generated method stub
+		
+	}}

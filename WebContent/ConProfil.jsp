@@ -4,6 +4,17 @@
 <%
     Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    
+    // Récupérer les statistiques depuis les attributs de requête
+    Integer nombreTrajets = (Integer) request.getAttribute("nombreTrajets");
+    Integer nombrePassagers = (Integer) request.getAttribute("nombrePassagers");
+    Double noteMoyenne = (Double) request.getAttribute("noteMoyenne");
+    
+    // Valeurs par défaut si non définies
+    if (nombreTrajets == null) nombreTrajets = 0;
+    if (nombrePassagers == null) nombrePassagers = 0;
+    if (noteMoyenne == null) noteMoyenne = conducteur.getNoteMoyenne();
+    if (noteMoyenne == null) noteMoyenne = 0.0;
 %>
 
 <style>
@@ -35,6 +46,8 @@
         font-size: 64px;
         color: white;
         font-weight: bold;
+        border: 4px solid white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .profile-name {
@@ -63,6 +76,7 @@
     .profile-rating .stars {
         color: #f39c12;
         font-size: 20px;
+        letter-spacing: 2px;
     }
     
     .profile-rating .score {
@@ -82,6 +96,11 @@
         padding: 15px;
         background: #f8f9fa;
         border-radius: 8px;
+        transition: transform 0.2s;
+    }
+    
+    .stat-item:hover {
+        transform: translateY(-2px);
     }
     
     .stat-value {
@@ -265,6 +284,20 @@
     .success-message.show {
         display: block;
     }
+    
+    /* Style pour les étoiles de notation */
+    .star-rating {
+        display: inline-block;
+    }
+    
+    .star {
+        color: #ddd;
+        font-size: 20px;
+    }
+    
+    .star.filled {
+        color: #f39c12;
+    }
 </style>
 
 <div class="top-bar">
@@ -278,7 +311,7 @@
     <!-- Profile Card -->
     <div class="profile-card">
         <div class="profile-avatar">
-            <%= conducteur.getPrenom().substring(0,1) + conducteur.getNom().substring(0,1) %>
+            <%= conducteur.getPrenom().substring(0,1).toUpperCase() + conducteur.getNom().substring(0,1).toUpperCase() %>
         </div>
         
         <h2 class="profile-name">
@@ -288,22 +321,37 @@
         <p class="profile-email"><%= conducteur.getEmail() %></p>
         
         <div class="profile-rating">
-            <span class="stars">★★★★★</span>
-            <span class="score"><%= String.format("%.1f", conducteur.getNoteMoyenne()) %>/5</span>
+            <div class="star-rating">
+                <% 
+                    int note = (int) Math.round(noteMoyenne);
+                    for (int i = 1; i <= 5; i++) {
+                        if (i <= note) {
+                %>
+                    <span class="star filled">★</span>
+                <% 
+                        } else {
+                %>
+                    <span class="star">★</span>
+                <% 
+                        }
+                    }
+                %>
+            </div>
+            <span class="score"><%= String.format("%.1f", noteMoyenne) %>/5</span>
         </div>
         
         <div class="profile-stats">
             <div class="stat-item">
-                <div class="stat-value">42</div>
-                <div class="stat-label">Trajets</div>
+                <div class="stat-value"><%= nombreTrajets %></div>
+                <div class="stat-label">Trajets Effectués</div>
             </div>
             <div class="stat-item">
-                <div class="stat-value">128</div>
-                <div class="stat-label">Passagers</div>
+                <div class="stat-value"><%= nombrePassagers %></div>
+                <div class="stat-label">Passagers Transportés</div>
             </div>
         </div>
         
-        <span class="profile-badge">✓ Vérifié</span>
+        <span class="profile-badge">✓ Conducteur Vérifié</span>
         
         <p class="member-since">
             Membre depuis <%= dateFormat.format(conducteur.getDateInscription()) %>
@@ -345,7 +393,7 @@
                     
                     <div class="form-group">
                         <label>Téléphone</label>
-                        <input type="tel" name="telephone" value="<%= conducteur.getTelephone() %>" required>
+                        <input type="tel" name="telephone" value="<%= conducteur.getTelephone() != null ? conducteur.getTelephone() : "" %>" required>
                     </div>
                 </div>
                 
@@ -373,22 +421,22 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Marque</label>
-                        <input type="text" name="marqueVehicule" value="<%= conducteur.getMarqueVehicule() %>" required>
+                        <input type="text" name="marqueVehicule" value="<%= conducteur.getMarqueVehicule() != null ? conducteur.getMarqueVehicule() : "" %>" required>
                     </div>
                     
                     <div class="form-group">
                         <label>Modèle</label>
-                        <input type="text" name="modeleVehicule" value="<%= conducteur.getModeleVehicule() %>" required>
+                        <input type="text" name="modeleVehicule" value="<%= conducteur.getModeleVehicule() != null ? conducteur.getModeleVehicule() : "" %>" required>
                     </div>
                     
                     <div class="form-group">
                         <label>Immatriculation</label>
-                        <input type="text" name="immatriculation" value="<%= conducteur.getImmatriculation() %>" required>
+                        <input type="text" name="immatriculation" value="<%= conducteur.getImmatriculation() != null ? conducteur.getImmatriculation() : "" %>" required>
                     </div>
                     
                     <div class="form-group">
                         <label>Nombre de Places</label>
-                        <input type="number" name="nombrePlaces" value="<%= conducteur.getNombrePlacesVehicule() %>" 
+                        <input type="number" name="nombrePlaces" value="<%= conducteur.getNombrePlacesVehicule() != 0 ? conducteur.getNombrePlacesVehicule() : 4 %>" 
                                min="1" max="8" required>
                     </div>
                 </div>
@@ -493,7 +541,8 @@
     function confirmerSuppression() {
         if (confirm('Êtes-vous absolument sûr de vouloir supprimer votre compte ?\n\nCette action est IRRÉVERSIBLE et toutes vos données seront définitivement perdues.')) {
             if (confirm('Dernière confirmation : Voulez-vous vraiment supprimer votre compte ?')) {
-                alert('Fonctionnalité de suppression en développement');
+                // Redirection vers la servlet de suppression
+                window.location.href = 'Conducteur?action=supprimerCompte';
             }
         }
     }
@@ -505,5 +554,13 @@
         setTimeout(() => {
             document.getElementById('successMessage').classList.remove('show');
         }, 5000);
+    }
+    
+    // Gestion des erreurs
+    if (urlParams.get('error') === 'true') {
+        const errorMsg = urlParams.get('msg');
+        if (errorMsg) {
+            alert('Erreur: ' + errorMsg);
+        }
     }
 </script>

@@ -7,14 +7,12 @@
     List<Reservation> reservations = (List<Reservation>) request.getAttribute("reservations");
     Integer nbEnAttente = (Integer) request.getAttribute("nbEnAttente");
     Integer nbConfirmees = (Integer) request.getAttribute("nbConfirmees");
-    Integer nbAnnulees = (Integer) request.getAttribute("nbAnnulees");
-    Integer nbTerminees = (Integer) request.getAttribute("nbTerminees");
+    Integer totalReservations = (Integer) request.getAttribute("totalReservations");
     
     // Initialisation des compteurs si non fournis (pour éviter les erreurs d'affichage)
     if (nbEnAttente == null) nbEnAttente = 0;
     if (nbConfirmees == null) nbConfirmees = 0;
-    if (nbAnnulees == null) nbAnnulees = 0;
-    if (nbTerminees == null) nbTerminees = 0;
+    if (totalReservations == null) totalReservations = 0;
     
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
     SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
@@ -61,15 +59,6 @@
     .reservation-card.confirmee::before {
         background: #28a745;
     }
-    
-    .reservation-card.terminee::before {
-        background: #17a2b8;
-    }
-    
-    .reservation-card.annulee::before {
-        background: #dc3545;
-    }
-    
     /* ------------------------------------------- */
     /* Styles pour l'en-tête et le statut */
     /* ------------------------------------------- */
@@ -122,16 +111,6 @@
         color: #155724;
     }
     
-    .status-terminee {
-        background: #d1ecf1;
-        color: #0c5460;
-    }
-    
-    .status-annulee {
-        background: #f8d7da;
-        color: #721c24;
-    }
-    
     /* ------------------------------------------- */
     /* Détails et Actions */
     /* ------------------------------------------- */
@@ -169,20 +148,34 @@
         font-size: 20px;
     }
     
-    .btn-cancel {
-        background: #f8d7da;
-        color: #721c24;
+    .reservation-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    
+    .btn-action {
         padding: 10px 20px;
-        border: none;
         border-radius: 6px;
+        border: none;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-cancel {
+        background: #f8d7da;
+        color: #721c24;
     }
     
     .btn-cancel:hover {
         background: #f5c6cb;
+        transform: translateY(-2px);
     }
     
     .empty-state {
@@ -209,9 +202,9 @@
     }
     
     /* ------------------------------------------- */
-    /* Modal (inchangé) */
+    /* Modal d'annulation */
     /* ------------------------------------------- */
-    .modal {
+    .modal-cancel {
         display: none;
         position: fixed;
         top: 0;
@@ -224,7 +217,7 @@
         justify-content: center;
     }
     
-    .modal.active {
+    .modal-cancel.active {
         display: flex;
     }
     
@@ -234,6 +227,8 @@
         border-radius: 12px;
         max-width: 500px;
         width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
     }
     
     .modal-header {
@@ -241,11 +236,14 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #f0f0f0;
     }
     
     .modal-header h3 {
         font-size: 22px;
         color: #2c3e50;
+        margin: 0;
     }
     
     .close-modal {
@@ -254,11 +252,15 @@
         font-size: 28px;
         cursor: pointer;
         color: #6c757d;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
     
-    .modal-body p {
-        color: #495057;
-        line-height: 1.6;
+    .modal-body {
         margin-bottom: 20px;
     }
     
@@ -267,7 +269,43 @@
         gap: 10px;
         justify-content: flex-end;
     }
-    /* Ajout des styles des cartes de statistiques qui manquaient */
+    
+    .btn {
+        padding: 12px 24px;
+        border-radius: 6px;
+        border: none;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-primary {
+        background: #667eea;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #5a6fd8;
+        transform: translateY(-1px);
+    }
+    
+    .btn-cancel-modal {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-cancel-modal:hover {
+        background: #c82333;
+    }
+    
+    /* ------------------------------------------- */
+    /* Cartes de statistiques */
+    /* ------------------------------------------- */
     .stats-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -291,9 +329,11 @@
         color: #7f8c8d;
         margin: 0;
     }
+    
     .stat-icon {
         font-size: 24px;
     }
+    
     .stat-card .value {
         font-size: 32px;
         font-weight: bold;
@@ -304,6 +344,9 @@
         font-size: 14px;
         color: #95a5a6;
     }
+    
+    .orange { color: #ff9800; }
+    .green { color: #4caf50; }
 </style>
 
 <div class="top-bar">
@@ -331,36 +374,21 @@
         <div class="value"><%= nbConfirmees %></div>
         <div class="label">Réservations confirmées</div>
     </div>
-    
-    <div class="stat-card">
-        <div class="stat-card-header">
-            <h3>Terminées</h3>
-            <div class="stat-icon blue">🎯</div>
-        </div>
-        <div class="value"><%= nbTerminees %></div>
-        <div class="label">Trajets effectués</div>
-    </div>
-    
-    <div class="stat-card">
-        <div class="stat-card-header">
-            <h3>Annulées</h3>
-            <div class="stat-icon red">❌</div>
-        </div>
-        <div class="value"><%= nbAnnulees %></div>
-        <div class="label">Réservations annulées</div>
-    </div>
 </div>
 
 <div class="content-section">
     <div class="section-header">
-        <h2>Toutes mes Réservations (<%= reservations != null ? reservations.size() : 0 %>)</h2>
+        <h2>Mes Réservations Actives (<%= totalReservations %>)</h2>
+        <p style="color: #6c757d; font-size: 14px; margin-top: 5px;">
+            Réservations en attente de confirmation ou confirmées (trajets à venir)
+        </p>
     </div>
     
     <% if (reservations == null || reservations.isEmpty()) { %>
         <div class="empty-state">
             <div class="empty-state-icon">📋</div>
-            <h3>Aucune réservation</h3>
-            <p>Vous n'avez pas encore effectué de réservation</p>
+            <h3>Aucune réservation active</h3>
+            <p>Vous n'avez pas de réservations en cours</p>
             <a href="Passager?page=rechercher" style="color: #667eea; text-decoration: none; font-weight: 600;">
                 Rechercher un trajet →
             </a>
@@ -384,14 +412,6 @@
                     statusClass = "status-confirmee";
                     statusLabel = "Confirmée";
                     cardClass = "confirmee";
-                } else if ("TERMINEE".equals(statut)) {
-                    statusClass = "status-terminee";
-                    statusLabel = "Terminée";
-                    cardClass = "terminee";
-                } else if ("ANNULEE".equals(statut)) {
-                    statusClass = "status-annulee";
-                    statusLabel = "Annulée";
-                    cardClass = "annulee";
                 }
             %>
                 <div class="reservation-card <%= cardClass %>">
@@ -427,7 +447,7 @@
                                     // Vérification sécurisée du conducteur
                                     Conducteur conducteur = reservation.getOffre().getConducteur();
                                     if (conducteur != null && conducteur.getPrenom() != null) {
-                                        out.print(conducteur.getPrenom());
+                                        out.print(conducteur.getPrenom() + " " + conducteur.getNom());
                                     } else {
                                         out.print("N/A");
                                     }
@@ -442,27 +462,28 @@
                         </div>
                     <% } %>
                     
-                    <% if ("EN_ATTENTE".equals(statut)) { %>
-                        <div style="margin-top: 15px; display: flex; align-items: center; justify-content: space-between;">
-                            <span style="color: #856404; font-size: 14px;">⏳ En attente de confirmation du conducteur</span>
-                            <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
+                    <div class="reservation-actions">
+                        <% if ("EN_ATTENTE".equals(statut)) { %>
+                            <span style="color: #856404; font-size: 14px; display: flex; align-items: center;">
+                                ⏳ En attente de confirmation du conducteur
+                            </span>
+                            <button class="btn-action btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
                                 ❌ Annuler
                             </button>
-                        </div>
-                    <% } else if ("CONFIRMEE".equals(statut)) { %>
-                        <div style="margin-top: 15px; text-align: right;">
-                            <button class="btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
+                        <% } else if ("CONFIRMEE".equals(statut)) { %>
+                            <button class="btn-action btn-cancel" onclick="cancelReservation(<%= reservation.getIdReservation() %>)">
                                 ❌ Annuler la Réservation
                             </button>
-                        </div>
-                    <% } %>
+                        <% } %>
+                    </div>
                 </div>
             <% } %>
         </div>
     <% } %>
 </div>
 
-<div id="cancelModal" class="modal">
+<!-- Modal d'annulation -->
+<div id="cancelModal" class="modal-cancel">
     <div class="modal-content">
         <div class="modal-header">
             <h3>Confirmer l'annulation</h3>
@@ -472,11 +493,11 @@
             <p>Êtes-vous sûr de vouloir annuler cette réservation ? Cette action est irréversible.</p>
         </div>
         <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="closeCancelModal()">Retour</button> 
+            <button class="btn btn-primary" onclick="closeCancelModal()">Retour</button> 
             <form method="POST" action="Passager" style="display: inline;">
                 <input type="hidden" name="action" value="annulerReservation">
                 <input type="hidden" name="reservationId" id="cancelReservationId">
-                <button type="submit" class="btn-cancel">Confirmer l'annulation</button>
+                <button type="submit" class="btn btn-cancel-modal">Confirmer l'annulation</button>
             </form>
         </div>
     </div>
@@ -489,15 +510,15 @@
         document.getElementById('cancelModal').classList.add('active'); // Affiche le modal
     }
     
-    // Ferme le modal
+    // Ferme le modal d'annulation
     function closeCancelModal() {
         document.getElementById('cancelModal').classList.remove('active');
     }
     
-    // Ferme le modal si l'utilisateur clique en dehors
+    // Fermer le modal en cliquant à l'extérieur
     window.onclick = function(event) {
-        const modal = document.getElementById('cancelModal');
-        if (event.target == modal) {
+        const modalCancel = document.getElementById('cancelModal');
+        if (event.target == modalCancel) {
             closeCancelModal();
         }
     }

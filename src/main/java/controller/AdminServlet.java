@@ -140,65 +140,99 @@ public class AdminServlet extends HttpServlet {
     private void afficherDashboard(HttpServletRequest request, HttpServletResponse response, 
             Administrateur admin) throws ServletException, IOException, SQLException {
         
-        // Consulter les statistiques globales
-        int totalUtilisateurs = utilisateurDAO.findAll().size();
-        int totalConducteurs = conducteurDAO.findAll().size();
-        int totalPassagers = passagerDAO.findAll().size();
-        int totalOffres = offreDAO.findAll().size();
-        int totalReservations = reservationDAO.findAll().size();
-        
-        // Offres en attente de validation
-        List<Offre> offresEnAttente = offreDAO.findEnAttente();
-        int offresEnAttenteCount = offresEnAttente.size();
-        
-        // Statistiques des offres
-        int offresActives = 0;
-        int offresTerminees = 0;
-        int offresAnnulees = 0;
-        
-        List<Offre> toutesOffres = offreDAO.findAll();
-        for (Offre offre : toutesOffres) {
-            String statut = offre.getStatut();
-            if ("VALIDEE".equals(statut)) {
-                offresActives++;
-            } else if ("TERMINEE".equals(statut)) {
-                offresTerminees++;
-            } else if ("ANNULEE".equals(statut)) {
-                offresAnnulees++;
+        try {
+            // Consulter les statistiques globales
+            List<Utilisateur> allUsers = utilisateurDAO.findAll();
+            List<Conducteur> allConducteurs = conducteurDAO.findAll();
+            List<Passager> allPassagers = passagerDAO.findAll();
+            List<Offre> allOffres = offreDAO.findAll();
+            List<Reservation> allReservations = reservationDAO.findAll();
+            
+            int totalUtilisateurs = allUsers.size();
+            int totalConducteurs = allConducteurs.size();
+            int totalPassagers = allPassagers.size();
+            int totalOffres = allOffres.size();
+            int totalReservations = allReservations.size();
+            
+            // Debug logs
+            System.out.println("=== STATISTIQUES DASHBOARD ===");
+            System.out.println("Total Utilisateurs: " + totalUtilisateurs);
+            System.out.println("Total Conducteurs: " + totalConducteurs);
+            System.out.println("Total Passagers: " + totalPassagers);
+            System.out.println("Total Offres: " + totalOffres);
+            System.out.println("Total Réservations: " + totalReservations);
+            
+            // Offres en attente de validation
+            List<Offre> offresEnAttente = offreDAO.findEnAttente();
+            int offresEnAttenteCount = offresEnAttente.size();
+            
+            System.out.println("Offres en attente: " + offresEnAttenteCount);
+            
+            // Statistiques des offres par statut
+            int offresActives = 0;
+            int offresTerminees = 0;
+            int offresAnnulees = 0;
+            
+            for (Offre offre : allOffres) {
+                String statut = offre.getStatut();
+                if ("VALIDEE".equals(statut)) {
+                    offresActives++;
+                } else if ("TERMINEE".equals(statut)) {
+                    offresTerminees++;
+                } else if ("ANNULEE".equals(statut)) {
+                    offresAnnulees++;
+                }
             }
-        }
-        
-        // Calculer le revenu total
-        double revenuTotal = 0;
-        for (Reservation res : reservationDAO.findAll()) {
-            if ("CONFIRMEE".equals(res.getStatut()) || "TERMINEE".equals(res.getStatut())) {
-                revenuTotal += res.getPrixTotal();
+            
+            System.out.println("Offres actives: " + offresActives);
+            System.out.println("Offres terminées: " + offresTerminees);
+            System.out.println("Offres annulées: " + offresAnnulees);
+            
+            // Calculer le revenu total
+            double revenuTotal = 0.0;
+            for (Reservation res : allReservations) {
+                String statut = res.getStatut();
+                if ("CONFIRMEE".equals(statut) || "TERMINEE".equals(statut)) {
+                    revenuTotal += res.getPrixTotal();
+                }
             }
+            
+            System.out.println("Revenu total: " + revenuTotal + " DH");
+            
+            // Passer les données à la JSP
+            request.setAttribute("totalUtilisateurs", totalUtilisateurs);
+            request.setAttribute("totalConducteurs", totalConducteurs);
+            request.setAttribute("totalPassagers", totalPassagers);
+            request.setAttribute("totalOffres", totalOffres);
+            request.setAttribute("totalReservations", totalReservations);
+            request.setAttribute("offresEnAttenteCount", offresEnAttenteCount);
+            request.setAttribute("offresActives", offresActives);
+            request.setAttribute("offresTerminees", offresTerminees);
+            request.setAttribute("offresAnnulees", offresAnnulees);
+            request.setAttribute("revenuTotal", revenuTotal);
+            
+            // Activités récentes (dernières 5 offres)
+            List<Offre> dernieresOffres = allOffres.stream()
+                .sorted((o1, o2) -> o2.getDatePublication().compareTo(o1.getDatePublication()))
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+            
+            request.setAttribute("dernieresOffres", dernieresOffres);
+            
+            System.out.println("Dernières offres: " + dernieresOffres.size());
+            System.out.println("==============================\n");
+            
+            request.setAttribute("page", "dashboard");
+            request.getRequestDispatcher("dashboardAdmin.jsp").forward(request, response);
+            
+        } catch (SQLException e) {
+            System.err.println("ERREUR SQL dans afficherDashboard: " + e.getMessage());
+            e.printStackTrace();
+            request.setAttribute("error", "Erreur lors de la récupération des statistiques: " + e.getMessage());
+            request.setAttribute("page", "dashboard");
+            request.getRequestDispatcher("dashboardAdmin.jsp").forward(request, response);
         }
-        
-        // Passer les données à la JSP
-        request.setAttribute("totalUtilisateurs", totalUtilisateurs);
-        request.setAttribute("totalConducteurs", totalConducteurs);
-        request.setAttribute("totalPassagers", totalPassagers);
-        request.setAttribute("totalOffres", totalOffres);
-        request.setAttribute("totalReservations", totalReservations);
-        request.setAttribute("offresEnAttenteCount", offresEnAttenteCount);
-        request.setAttribute("offresActives", offresActives);
-        request.setAttribute("offresTerminees", offresTerminees);
-        request.setAttribute("offresAnnulees", offresAnnulees);
-        request.setAttribute("revenuTotal", revenuTotal);
-        
-        // Activités récentes (dernières offres)
-        List<Offre> dernieresOffres = toutesOffres.stream()
-            .sorted((o1, o2) -> o2.getDatePublication().compareTo(o1.getDatePublication()))
-            .limit(5)
-            .collect(java.util.stream.Collectors.toList());
-        request.setAttribute("dernieresOffres", dernieresOffres);
-        
-        request.setAttribute("page", "dashboard");
-        request.getRequestDispatcher("dashboardAdmin.jsp").forward(request, response);
     }
-    
     private void afficherUtilisateurs(HttpServletRequest request, HttpServletResponse response, 
             Administrateur admin) throws ServletException, IOException, SQLException {
         

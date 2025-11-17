@@ -326,66 +326,106 @@
 <div class="content-section">
     <div class="section-header">
         <h2>Offres Disponibles (<%= offres != null ? offres.size() : 0 %>)</h2>
+        <p style="color: #6c757d; font-size: 14px; margin-top: 5px;">
+            Trajets à venir uniquement - Les trajets passés sont automatiquement exclus
+        </p>
     </div>
     
     <% if (offres == null || offres.isEmpty()) { %>
         <div class="empty-state">
             <div class="empty-state-icon">🔍</div>
             <h3>Aucune offre trouvée</h3>
-            <p>Essayez de modifier vos critères de recherche</p>
+            <p>Soit aucun trajet ne correspond à vos critères, soit tous les trajets disponibles sont déjà passés</p>
+            <div style="margin-top: 15px;">
+                <a href="Passager?page=rechercher" style="color: #667eea; text-decoration: none; font-weight: 600;">
+                    🔄 Réessayer avec d'autres critères
+                </a>
+            </div>
         </div>
     <% } else { %>
         <div class="offres-grid">
-            <% for (Offre offre : offres) { %>
-                <div class="offre-card">
-                    <div class="offre-header">
-                        <div class="offre-route">
-                            <h3>
-                                📍 <%= offre.getVilleDepart() %> <span class="route-arrow">→</span> <%= offre.getVilleArrivee() %>
-                            </h3>
-                            <div class="offre-date">
-                                🗓 <%= dateFormat.format(offre.getDateDepart()) %> à <%= timeFormat.format(offre.getHeureDepart()) %>
+            <% for (Offre offre : offres) { 
+                // ✅ Vérification supplémentaire côté frontend (sécurité)
+                java.util.Date maintenant = new java.util.Date();
+                boolean estTrajetFutur = offre.getDateDepart().after(maintenant) || 
+                    (estMemeJour(offre.getDateDepart(), maintenant) && 
+                     offre.getHeureDepart().after(new java.sql.Time(maintenant.getTime())));
+            %>
+                <% if (estTrajetFutur) { %>
+                    <div class="offre-card">
+                        <div class="offre-header">
+                            <div class="offre-route">
+                                <h3>
+                                    📍 <%= offre.getVilleDepart() %> <span class="route-arrow">→</span> <%= offre.getVilleArrivee() %>
+                                </h3>
+                                <div class="offre-date">
+                                    🗓 <%= dateFormat.format(offre.getDateDepart()) %> à <%= timeFormat.format(offre.getHeureDepart()) %>
+                                    <% if (estMemeJour(offre.getDateDepart(), new java.util.Date())) { %>
+                                        <span style="color: #28a745; font-weight: 600; margin-left: 10px;">🕐 Aujourd'hui</span>
+                                    <% } else if (estDemain(offre.getDateDepart(), new java.util.Date())) { %>
+                                        <span style="color: #17a2b8; font-weight: 600; margin-left: 10px;">📅 Demain</span>
+                                    <% } %>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="offre-details">
-                        <div class="detail-item">
-                            <span class="detail-label">Places Disponibles</span>
-                            <span class="detail-value"><%= offre.getPlacesDisponibles() %> / <%= offre.getPlacesTotales() %></span>
+                        
+                        <div class="offre-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Places Disponibles</span>
+                                <span class="detail-value"><%= offre.getPlacesDisponibles() %> / <%= offre.getPlacesTotales() %></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Prix par Place</span>
+                                <span class="detail-value price-highlight"><%= String.format("%.0f", offre.getPrixParPlace()) %> DH</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Publié le</span>
+                                <span class="detail-value"><%= dateFormat.format(offre.getDatePublication()) %></span>
+                            </div>
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Prix par Place</span>
-                            <span class="detail-value price-highlight"><%= String.format("%.0f", offre.getPrixParPlace()) %> DH</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Publié le</span>
-                            <span class="detail-value"><%= dateFormat.format(offre.getDatePublication()) %></span>
-                        </div>
-                    </div>
-                    
-                    <% if (offre.getCommentaire() != null && !offre.getCommentaire().trim().isEmpty()) { %>
-                        <div class="commentaire-box">
-                            💬 <%= offre.getCommentaire() %>
-                        </div>
-                    <% } %>
-                    
-                    <div style="margin-top: 15px;">
-                        <% if (offre.getPlacesDisponibles() > 0) { %>
-                            <button class="btn-reserve" onclick="openReservationModal(<%= offre.getIdOffre() %>, '<%= offre.getVilleDepart() %>', '<%= offre.getVilleArrivee() %>', <%= offre.getPrixParPlace() %>, <%= offre.getPlacesDisponibles() %>)">
-                                🎫 Réserver
-                            </button>
-                        <% } else { %>
-                            <button class="btn-reserve" disabled style="background: #95a5a6; cursor: not-allowed;">
-                                Complet
-                            </button>
+                        
+                        <% if (offre.getCommentaire() != null && !offre.getCommentaire().trim().isEmpty()) { %>
+                            <div class="commentaire-box">
+                                💬 <%= offre.getCommentaire() %>
+                            </div>
                         <% } %>
+                        
+                        <div style="margin-top: 15px;">
+                            <% if (offre.getPlacesDisponibles() > 0) { %>
+                                <button class="btn-reserve" onclick="openReservationModal(<%= offre.getIdOffre() %>, '<%= offre.getVilleDepart() %>', '<%= offre.getVilleArrivee() %>', <%= offre.getPrixParPlace() %>, <%= offre.getPlacesDisponibles() %>)">
+                                    🎫 Réserver
+                                </button>
+                            <% } else { %>
+                                <button class="btn-reserve" disabled style="background: #95a5a6; cursor: not-allowed;">
+                                    Complet
+                                </button>
+                            <% } %>
+                        </div>
                     </div>
-                </div>
+                <% } %>
             <% } %>
         </div>
     <% } %>
 </div>
+
+<%!
+    // Méthodes utilitaires pour les dates
+    private boolean estMemeJour(java.util.Date date1, java.util.Date date2) {
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        return sdf.format(date1).equals(sdf.format(date2));
+    }
+    
+    private boolean estDemain(java.util.Date date, java.util.Date aujourdhui) {
+        java.util.Calendar cal1 = java.util.Calendar.getInstance();
+        java.util.Calendar cal2 = java.util.Calendar.getInstance();
+        cal1.setTime(date);
+        cal2.setTime(aujourdhui);
+        cal2.add(java.util.Calendar.DAY_OF_YEAR, 1);
+        
+        return cal1.get(java.util.Calendar.YEAR) == cal2.get(java.util.Calendar.YEAR) &&
+               cal1.get(java.util.Calendar.DAY_OF_YEAR) == cal2.get(java.util.Calendar.DAY_OF_YEAR);
+    }
+%>
 
 <!-- Modal de réservation -->
 <div id="reservationModal" class="modal">
