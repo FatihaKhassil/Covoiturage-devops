@@ -1,11 +1,14 @@
 package controller;
 
+import websocket.NotificationWebSocketEndpoint;
 import models.*;
 import dao.OffreDAO;
 import dao.ReservationDAO;
 import dao.EvaluationDAO;
 import dao.ConducteurDAO;
 import dao.impl.OffreDAOImpl;
+import dao.NotificationDAO;
+import dao.impl.NotificationDAOImpl;
 import dao.impl.ReservationDAOImpl;
 import dao.impl.EvaluationDAOImpl;
 import dao.impl.ConducteurDAOImpl;
@@ -33,6 +36,7 @@ public class ConducteurServlet extends HttpServlet {
     private EvaluationDAO evaluationDAO;
     private ReservationDAO reservationDAO;
     private ConducteurDAO conducteurDAO;
+    private NotificationDAO notificationDAO;
     
     @Override
     public void init() throws ServletException {
@@ -42,6 +46,7 @@ public class ConducteurServlet extends HttpServlet {
             this.evaluationDAO = new EvaluationDAOImpl(connection);
             this.reservationDAO = new ReservationDAOImpl(connection);
             this.conducteurDAO = new ConducteurDAOImpl(connection);
+            this.notificationDAO = new NotificationDAOImpl(connection);
 
         } catch (Exception e) {
             throw new ServletException("Impossible de se connecter à la base de données", e);
@@ -59,8 +64,32 @@ public class ConducteurServlet extends HttpServlet {
         }
         
         Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
+        Long userId = conducteur.getId(); // Récupérer l'ID de l'utilisateur conducteur
         String page = request.getParameter("page");
         
+        // ➡️ 1. GESTION DE L'ACTION DE MARQUAGE (Déplacée AVANT le switch)
+        if ("marquerToutesLues".equals(request.getParameter("action"))) {
+            String redirectPage = request.getParameter("redirectPage");
+            
+            try {
+                boolean success = notificationDAO.marquerToutesCommeLues(userId);
+                
+                if (success) {
+                    // Optionnel : Ajouter un message de succès
+                    session.setAttribute("success", "Toutes les notifications ont été marquées comme lues.");
+                }
+            } catch (SQLException e) {
+                System.err.println("SQL ERROR marking all read for user " + userId + ": " + e.getMessage()); 
+                e.printStackTrace();
+                session.setAttribute("error", " Erreur BD lors du marquage des notifications.");
+            }
+            
+            // Redirection vers la page d'origine pour recharger le compteur
+            response.sendRedirect("Conducteur?page=" + redirectPage); 
+            return; // ARRÊTER l'exécution ici
+        }
+
+        // 2. AIGUILLAGE PRINCIPAL (Si aucune action spéciale n'est demandée)
         if (page == null || page.isEmpty()) {
             page = "dashboard";
         }
@@ -162,6 +191,13 @@ request.setAttribute("offresActives", 0);
 request.setAttribute("totalReservations", 0);
 request.setAttribute("demandesEnAttente", 0);
 } else {
+	// Calculer le nombre de notifications non lues
+	int nbNotifNonLues = notificationDAO.compterNonLues(conducteurId);
+	request.setAttribute("nbNotifNonLues", nbNotifNonLues);
+
+	// Récupérer les 5 dernières notifications non lues pour le menu
+	List<Notification> dernieresNotifs = notificationDAO.findNonLuesByUtilisateur(conducteurId);
+	request.setAttribute("dernieresNotifs", dernieresNotifs);
 // Récupérer toutes les offres du conducteur
 List<Offre> offres = offreDAO.findByConducteur(conducteurId);
 
@@ -572,9 +608,9 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                 
                 HttpSession session = request.getSession();
                 if (success) {
-                    session.setAttribute("success", "✅ Trajet marqué comme terminé !");
+                    session.setAttribute("success", "Trajet marqué comme terminé !");
                 } else {
-                    session.setAttribute("error", "❌ Erreur lors de la mise à jour");
+                    session.setAttribute("error", " Erreur lors de la mise à jour");
                 }
             }
         } catch (Exception e) {
@@ -673,33 +709,51 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                                 
                                 HttpSession session = request.getSession();
                                 if (updatePlacesSuccess) {
-                                    session.setAttribute("success", "✅ Réservation confirmée avec succès!");
+                                    session.setAttribute("success", "Réservation confirmée avec succès!");
+                                    // 1. NOTIFICATION BDD (Persistance)
+                                    Long passagerId = reservation.getPassager().getIdUtilisateur();
+                                    String notifMessageDB = String.format(
+                                        "Votre réservation pour le trajet %s->%s a été CONFIRMÉE par le conducteur.",
+                                        reservation.getOffre().getVilleDepart(), reservation.getOffre().getVilleArrivee()
+                                    );
+                                    
+                                    Notification notificationDB = new Notification(passagerId, notifMessageDB);
+                                    notificationDAO.create(notificationDB); // Sauvegarde
+                                    
+                                    // 2. NOTIFICATION WEB SOCKET (Temps Réel)
+                                    String jsonPayload = String.format(
+                                        "{\"type\": \"statutReservation\", \"message\": \"Réservation CONFIRMÉE !\", \"reservationId\": %d, \"statut\": \"CONFIRMEE\"}",
+                                        reservationId
+                                    );
+                                    
+                                    // Envoi au passager
+                                    NotificationWebSocketEndpoint.sendNotificationToUser(passagerId, jsonPayload);
                                 } else {
-                                    session.setAttribute("error", "⚠️ Réservation confirmée mais erreur mise à jour places");
+                                    session.setAttribute("error", "Réservation confirmée mais erreur mise à jour places");
                                 }
                             } else {
                                 HttpSession session = request.getSession();
-                                session.setAttribute("error", "❌ Erreur lors de la confirmation du statut");
+                                session.setAttribute("error", "Erreur lors de la confirmation du statut");
                             }
                         } else {
                             System.out.println("Pas assez de places disponibles");
                             HttpSession session = request.getSession();
-                            session.setAttribute("error", "❌ Plus assez de places disponibles");
+                            session.setAttribute("error", " Plus assez de places disponibles");
                         }
                     } else {
                         System.out.println("Statut incorrect pour confirmation: " + reservation.getStatut());
                         HttpSession session = request.getSession();
-                        session.setAttribute("error", "❌ Cette réservation ne peut pas être confirmée (statut: " + reservation.getStatut() + ")");
+                        session.setAttribute("error", " Cette réservation ne peut pas être confirmée (statut: " + reservation.getStatut() + ")");
                     }
                 } else {
                     System.out.println("Réservation non trouvée");
                     HttpSession session = request.getSession();
-                    session.setAttribute("error", "❌ Réservation introuvable");
+                    session.setAttribute("error", "Réservation introuvable");
                 }
             } else {
                 System.out.println("Aucun ID de réservation reçu");
                 HttpSession session = request.getSession();
-                session.setAttribute("error", "❌ Aucune réservation spécifiée");
+                session.setAttribute("error", "Aucune réservation spécifiée");
             }
         } catch (Exception e) {
             System.err.println("ERREUR dans confirmerReservation: " + e.getMessage());
@@ -749,25 +803,45 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                         }
                         
                         HttpSession session = request.getSession();
-                        String message = "❌ Réservation refusée";
+                        String message = " Réservation refusée";
                         if (motifRefus != null && !motifRefus.trim().isEmpty()) {
                             message += " - Motif: " + motifRefus;
                         }
+                
+                     // 1. NOTIFICATION BDD (Persistance)
+                        Long passagerId = reservation.getPassager().getIdUtilisateur();
+                        String motifLog = (motifRefus != null && !motifRefus.trim().isEmpty()) ? " Motif: " + motifRefus : "";
+                        String notifMessageDB = String.format(
+                            "Votre réservation pour le trajet %s->%s a été REFUSÉE.%s",
+                            reservation.getOffre().getVilleDepart(), reservation.getOffre().getVilleArrivee(), motifLog
+                        );
+                        
+                        Notification notificationDB = new Notification(passagerId, notifMessageDB);
+                        notificationDAO.create(notificationDB); // Sauvegarde
+                        
+                        // 2. NOTIFICATION WEB SOCKET (Temps Réel)
+                        String jsonPayload = String.format(
+                            "{\"type\": \"statutReservation\", \"message\": \"Réservation REFUSÉE !%s\", \"reservationId\": %d, \"statut\": \"REFUSEE\"}",
+                            motifLog, reservationId
+                        );
+                        
+                        // Envoi au passager
+                        NotificationWebSocketEndpoint.sendNotificationToUser(passagerId, jsonPayload);
                         session.setAttribute("success", message);
                     } else {
                         System.out.println("Échec de la mise à jour du statut");
                         HttpSession session = request.getSession();
-                        session.setAttribute("error", "❌ Erreur lors du refus");
+                        session.setAttribute("error", "Erreur lors du refus");
                     }
                 } else {
                     System.out.println("Réservation non trouvée");
                     HttpSession session = request.getSession();
-                    session.setAttribute("error", "❌ Réservation introuvable");
+                    session.setAttribute("error", "Réservation introuvable");
                 }
             } else {
                 System.out.println("Aucun ID de réservation reçu");
                 HttpSession session = request.getSession();
-                session.setAttribute("error", "❌ Aucune réservation spécifiée");
+                session.setAttribute("error", " Aucune réservation spécifiée");
             }
         } catch (Exception e) {
             System.err.println("ERREUR dans refuserReservation: " + e.getMessage());
@@ -928,9 +1002,9 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
             Long evaluationId = evaluationDAO.create(evaluation);
             
             if (evaluationId != null) {
-                session.setAttribute("success", "✅ Évaluation envoyée avec succès !");
+                session.setAttribute("success", "Évaluation envoyée avec succès !");
             } else {
-                session.setAttribute("error", "❌ Erreur lors de l'envoi de l'évaluation");
+                session.setAttribute("error", "Erreur lors de l'envoi de l'évaluation");
             }
             
         } catch (Exception e) {

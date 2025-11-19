@@ -173,10 +173,6 @@ public class Offre {
         this.commentaire = commentaire;
     }
     
-    public void setConducteur(Conducteur conducteur) {
-		this.conducteur = conducteur;
-	}
-
 	public Boolean getEstEffectuee() {
         return estEffectuee;
     }

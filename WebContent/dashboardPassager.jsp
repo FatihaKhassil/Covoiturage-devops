@@ -1,8 +1,14 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="models.Passager, models.Offre, models.Reservation, java.util.List, java.text.SimpleDateFormat" %>
+<%@ page import="models.Passager, models.Offre, models.Reservation, models.Notification, java.util.List, java.text.SimpleDateFormat" %>
 <%
     Passager passager = (Passager) session.getAttribute("utilisateur");
     String typeUtilisateur = (String) session.getAttribute("typeUtilisateur");
+    Long passagerId = passager.getId();
+    Integer nbNotifNonLues = (Integer) request.getAttribute("nbNotifNonLues");
+    List<Notification> dernieresNotifs = (List<Notification>) request.getAttribute("dernieresNotifs");
+
+    if (nbNotifNonLues == null) nbNotifNonLues = 0;
+    if (dernieresNotifs == null) dernieresNotifs = new java.util.ArrayList<>();
     
     if (passager == null || !"passager".equals(typeUtilisateur)) {
         response.sendRedirect("connexion.jsp");
@@ -264,6 +270,80 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        
+        /* NOUVEAU CSS POUR LES NOTIFICATIONS */
+        .notification-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .notification-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            position: relative;
+        }
+
+        .badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .badge.active {
+            display: block;
+        }
+
+        .notification-dropdown {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 50px;
+            width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            border-radius: 8px;
+        }
+
+        .dropdown-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item.unseen {
+            background-color: #f7f7f7;
+            font-weight: 600;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .dropdown-footer {
+            padding: 10px;
+            text-align: center;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -323,6 +403,8 @@
         
         <!-- Main Content -->
         <main class="main-content">
+           
+            
             <%
                 // Messages d'alerte
                 String success = (String) session.getAttribute("success");
@@ -370,5 +452,86 @@
             %>
         </main>
     </div>
+
+    <script>
+        // Toggle notification dropdown
+        document.getElementById('notification-toggle').addEventListener('click', function() {
+            const dropdown = document.getElementById('notification-dropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const container = document.querySelector('.notification-container');
+            if (!container.contains(event.target)) {
+                document.getElementById('notification-dropdown').style.display = 'none';
+            }
+        });
+
+        // WebSocket pour notifications en temps réel
+        const currentUserId = "<%= passager.getId() %>";
+        const appName = "Covoiturage"; // REMPLACER PAR LE NOM DE VOTRE CONTEXTE
+
+        if (currentUserId && currentUserId !== "null") {
+            const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+            const host = window.location.host;
+            const wsUrl = protocol + host + "/" + appName + "/notifications/" + currentUserId;
+            
+            let websocket;
+
+            function connectWebSocket() {
+                websocket = new WebSocket(wsUrl);
+
+                websocket.onopen = function(event) {
+                    console.log("WebSocket connecté pour l'utilisateur: " + currentUserId);
+                };
+
+                websocket.onmessage = function(event) {
+                    const notification = JSON.parse(event.data);
+                    console.log("Notification temps réel reçue:", notification);
+
+                    // Mettre à jour le badge
+                    const badge = document.getElementById('notification-badge');
+                    let count = parseInt(badge.textContent);
+                    badge.textContent = count + 1;
+                    badge.classList.add('active');
+
+                    // Afficher une alerte
+                    alert(`🔔 Nouvelle notification: ${notification.message}`);
+                    
+                    // Formater l'heure actuelle
+                    const now = new Date();
+                    const formattedTime = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+                    // Mettre à jour le dropdown
+                    const dropdown = document.getElementById('notification-dropdown');
+                    const newItem = document.createElement('div');
+                    
+                    newItem.className = 'dropdown-item unseen';
+                    newItem.innerHTML = `<span class="notif-message">${notification.message}</span>
+                                         <span class="notif-time">${formattedTime}</span>`;
+                    
+                    // Supprimer le message "Aucune notification" si présent
+                    const noNotifMessage = dropdown.querySelector('p');
+                    if (noNotifMessage && noNotifMessage.textContent.includes('Aucune nouvelle notification')) {
+                         dropdown.innerHTML = '';
+                    }
+                    
+                    dropdown.prepend(newItem);
+                };
+
+                websocket.onclose = function(event) {
+                    console.log("WebSocket déconnecté. Tentative de reconnexion...");
+                    setTimeout(connectWebSocket, 5000);
+                };
+
+                websocket.onerror = function(error) {
+                    console.error("Erreur WebSocket:", error);
+                };
+            }
+
+            connectWebSocket();
+        }
+    </script>
 </body>
 </html>

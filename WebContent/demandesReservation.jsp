@@ -829,7 +829,6 @@
 <div class="top-bar">
     <div>
         <h1>Demandes de Réservation</h1>
-        <div class="breadcrumb">Accueil / Demandes</div>
     </div>
 </div>
 

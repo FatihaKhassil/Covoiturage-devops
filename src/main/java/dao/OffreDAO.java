@@ -19,7 +19,6 @@ public interface OffreDAO {
     boolean updatePlacesDisponibles(Long offreId, Integer nbPlaces) throws SQLException;
     boolean delete(Long id) throws SQLException;
 	List<Offre> findAll() throws SQLException;
-    void updateStatutsAutomatiquement() throws SQLException;
     Connection getConnection() throws SQLException;
 
 }

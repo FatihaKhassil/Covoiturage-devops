@@ -1,14 +1,21 @@
 package controller;
 
-import models.*;
+import websocket.NotificationWebSocketEndpoint;
+import models.Passager;
+import models.Evaluation;
+import models.Offre;
+import models.Notification;
+import dao.NotificationDAO;
+import dao.impl.NotificationDAOImpl;
+import models.Reservation;
+import dao.EvaluationDAO;
 import dao.OffreDAO;
 import dao.ReservationDAO;
-import dao.EvaluationDAO;
-import dao.ConducteurDAO;
+import dao.PassagerDAO;
+import dao.impl.EvaluationDAOImpl;
 import dao.impl.OffreDAOImpl;
 import dao.impl.ReservationDAOImpl;
-import dao.impl.EvaluationDAOImpl;
-import dao.impl.ConducteurDAOImpl;
+import dao.impl.PassagerDAOImpl;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -16,80 +23,110 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Time;
-import java.text.ParseException;
+import java.sql.Connection;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 import Covoiturage.dao.factory.Factory;
 
-@WebServlet("/Conducteur")
-public class ConducteurServlet extends HttpServlet {
+@WebServlet("/Passager")
+public class PassagerServlet extends HttpServlet {
     
     private OffreDAO offreDAO;
-    private EvaluationDAO evaluationDAO;
     private ReservationDAO reservationDAO;
-    private ConducteurDAO conducteurDAO;
+    private PassagerDAO passagerDAO;
+    private EvaluationDAO evaluationDAO;
+    private NotificationDAO notificationDAO;
+
     
     @Override
     public void init() throws ServletException {
         try {
             Connection connection = Factory.dbConnect();
             this.offreDAO = new OffreDAOImpl(connection);
-            this.evaluationDAO = new EvaluationDAOImpl(connection);
             this.reservationDAO = new ReservationDAOImpl(connection);
-            this.conducteurDAO = new ConducteurDAOImpl(connection);
+            this.passagerDAO = new PassagerDAOImpl(connection);
+            this.evaluationDAO = new EvaluationDAOImpl(connection);
+            this.notificationDAO = new NotificationDAOImpl(connection);
 
         } catch (Exception e) {
             throw new ServletException("Impossible de se connecter à la base de données", e);
         }
-    }    
+    }
+    
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("utilisateur") == null || 
-            !"conducteur".equals(session.getAttribute("typeUtilisateur"))) {
+            !"passager".equals(session.getAttribute("typeUtilisateur"))) {
             response.sendRedirect("connexion.jsp");
             return;
         }
         
-        Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
+        Passager passager = (Passager) session.getAttribute("utilisateur");
+        Long userId = passager.getId(); // Récupérer l'ID de l'utilisateur passager
         String page = request.getParameter("page");
         
+        // ➡️ 1. GESTION DE L'ACTION DE MARQUAGE (Déplacée AVANT le switch)
+        if ("marquerToutesLues".equals(request.getParameter("action"))) {
+            String redirectPage = request.getParameter("redirectPage");
+            
+            try {
+                boolean success = notificationDAO.marquerToutesCommeLues(userId);
+                
+                if (success) {
+                    // Optionnel : Ajouter un message de succès
+                    session.setAttribute("success", "Toutes les notifications ont été marquées comme lues.");
+                }
+            } catch (SQLException e) {
+                System.err.println("SQL ERROR marking all read for user " + userId + ": " + e.getMessage()); 
+                e.printStackTrace();
+                session.setAttribute("error", "Erreur BD lors du marquage des notifications.");
+            }
+            
+            // Redirection vers la page d'origine pour recharger le compteur
+            response.sendRedirect("Passager?page=" + redirectPage); 
+            return; // ARRÊTER l'exécution ici
+        }
+        
+        // 2. AIGUILLAGE PRINCIPAL (Si aucune action spéciale n'est demandée)
         if (page == null || page.isEmpty()) {
             page = "dashboard";
         }
         
         switch (page) {
             case "dashboard":
-                afficherDashboard(request, response, conducteur);
+                // Vous devez vous assurer que les notifications sont chargées ici et dans les autres méthodes!
+                afficherDashboard(request, response, passager);
                 break;
-            case "offres":
-                afficherOffres(request, response, conducteur);
+            case "rechercher":
+                afficherRechercher(request, response, passager);
                 break;
-            case "publier":
-                afficherFormPublier(request, response, conducteur);
+            case "reservations":
+                afficherReservations(request, response, passager);
                 break;
-            case "demandes":
-                afficherDemandes(request, response, conducteur);
-                break;
-            case "evaluations":
-                afficherEvaluations(request, response, conducteur);
+            case "historique":
+                afficherHistorique(request, response, passager);
                 break;
             case "profil":
-                afficherProfil(request, response, conducteur);
+                afficherProfil(request, response, passager);
+                break;
+            case "evaluerConducteur":
+                evaluerConducteur(request, response);
+                break;
+            case "evaluations":
+                afficherEvaluations(request, response, passager);
                 break;
             default:
-                response.sendRedirect("Conducteur?page=dashboard");
+                response.sendRedirect("Passager?page=dashboard");
                 break;
         }
     }
-    
     
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response) 
@@ -106,687 +143,447 @@ public class ConducteurServlet extends HttpServlet {
         String action = request.getParameter("action");
         
         if (action == null || action.isEmpty()) {
-            response.sendRedirect("Conducteur?page=dashboard");
+            response.sendRedirect("Passager?page=dashboard");
             return;
         }
         
         switch (action) {
-            case "publierOffre":
-                publierOffre(request, response);
+            case "reserver":
+                reserverTrajet(request, response);
                 break;
-            case "annulerOffre":
-                annulerOffre(request, response);
-                break;
-            case "marquerEffectuee":
-                marquerEffectuee(request, response);
-                break;
-            case "confirmerReservation":
-                confirmerReservation(request, response);
-                break;
-            case "refuserReservation":
-                refuserReservation(request, response);
+            case "annulerReservation":
+                annulerReservation(request, response);
                 break;
             case "updateProfil":
                 updateProfil(request, response);
                 break;
-            case "updateVehicule":
-                updateVehicule(request, response);
-                break;
             case "updateMotDePasse":
                 updateMotDePasse(request, response);
                 break;
-            case "evaluerPassager":
-                evaluerPassager(request, response);
-                break;
-            case "terminerReservation":
-                terminerReservation(request, response);
-                break;
-                
+            case "evaluerConducteur": 
+                evaluerConducteur(request, response); 
+                break; 
             default:
-                response.sendRedirect("Conducteur?page=dashboard");
+                response.sendRedirect("Passager?page=dashboard");
                 break;
         }
     }
     
-    // ========== Méthodes d'affichage ==========
-    
     private void afficherDashboard(HttpServletRequest request, HttpServletResponse response, 
-            Conducteur conducteur) throws ServletException, IOException {
+            Passager passager) throws ServletException, IOException {
 try {
-Long conducteurId = conducteur.getId();
+Long passagerId = passager.getId();
 
-if (conducteurId == null) {
-request.setAttribute("error", "Erreur: ID conducteur non trouvé");
-request.setAttribute("totalOffres", 0);
-request.setAttribute("offresActives", 0);
+if (passagerId == null) {
+request.setAttribute("error", "Erreur: ID passager non trouvé");
 request.setAttribute("totalReservations", 0);
-request.setAttribute("demandesEnAttente", 0);
+request.setAttribute("reservationsEnAttente", 0);
+request.setAttribute("reservationsConfirmees", 0);
+request.setAttribute("reservationsTerminees", 0);
+request.setAttribute("reservationsAnnulees", 0);
+request.setAttribute("offresDisponibles", 0);
 } else {
-// Récupérer toutes les offres du conducteur
-List<Offre> offres = offreDAO.findByConducteur(conducteurId);
+// Récupérer toutes les réservations du passager
+List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
 
-// Calculer les statistiques
-int totalOffres = offres.size();
-int offresActives = 0;
-int offresCompletes = 0;
-int offresTerminees = 0;
+// ✅ Calculer les statistiques pour chaque statut
+int totalReservations = reservations.size();
+int reservationsEnAttente = 0;
+int reservationsConfirmees = 0;
+int reservationsTerminees = 0;
+int reservationsAnnulees = 0;
 
-for (Offre offre : offres) {
-String statut = offre.getStatut();
+for (Reservation res : reservations) {
+String statut = res.getStatut();
+
 if ("EN_ATTENTE".equals(statut)) {
- if (offre.getPlacesDisponibles() > 0) {
-     offresActives++;
- } else {
-     offresCompletes++;
- }
+ reservationsEnAttente++;
+} else if ("CONFIRMEE".equals(statut)) {
+ reservationsConfirmees++;
 } else if ("TERMINEE".equals(statut)) {
- offresTerminees++;
+ reservationsTerminees++;
+} else if ("ANNULEE".equals(statut)) {
+ reservationsAnnulees++;
 }
 }
+//Calculer le nombre de notifications non lues
+int nbNotifNonLues = notificationDAO.compterNonLues(passagerId);
+request.setAttribute("nbNotifNonLues", nbNotifNonLues);
 
-// TODO: Récupérer les réservations depuis la base de données quand ReservationDAO sera disponible
-int totalReservations = 0;
-int demandesEnAttente = 0;
+//Récupérer les 5 dernières notifications non lues pour le menu
+List<Notification> dernieresNotifs = notificationDAO.findNonLuesByUtilisateur(passagerId);
+request.setAttribute("dernieresNotifs", dernieresNotifs);
 
-// Si vous avez déjà un ReservationDAO, décommentez ces lignes:
-// List<Reservation> reservations = ReservationDAO.findByConducteur(conducteurId);
-// totalReservations = reservations.size();
-// for (Reservation res : reservations) {
-//     if ("EN_ATTENTE".equals(res.getStatut())) {
-//         demandesEnAttente++;
-//     }
-// }
+// Récupérer les offres disponibles
+List<Offre> offresDisponibles = offreDAO.findValidee();
+int nbOffresDisponibles = offresDisponibles.size();
 
-// Passer les données à la JSP
-request.setAttribute("totalOffres", totalOffres);
-request.setAttribute("offresActives", offresActives);
-request.setAttribute("offresCompletes", offresCompletes);
-request.setAttribute("offresTerminees", offresTerminees);
+// Récupérer les 5 dernières réservations pour l'activité récente
+List<Reservation> dernieresReservations = reservations.stream()
+.sorted((r1, r2) -> r2.getDateReservation().compareTo(r1.getDateReservation()))
+.limit(5)
+.collect(Collectors.toList());
+
+// ✅ Passer TOUS les statuts à la JSP
 request.setAttribute("totalReservations", totalReservations);
-request.setAttribute("demandesEnAttente", demandesEnAttente);
+request.setAttribute("reservationsEnAttente", reservationsEnAttente);
+request.setAttribute("reservationsConfirmees", reservationsConfirmees);
+request.setAttribute("reservationsTerminees", reservationsTerminees);
+request.setAttribute("reservationsAnnulees", reservationsAnnulees);
+request.setAttribute("offresDisponibles", nbOffresDisponibles);
+request.setAttribute("dernieresReservations", dernieresReservations);
 
-// Récupérer les dernières offres pour l'activité récente
-List<Offre> dernieresOffres = new ArrayList<>();
-if (offres.size() > 0) {
-// Trier par date de publication décroissante et prendre les 5 dernières
-dernieresOffres = offres.stream()
- .sorted((o1, o2) -> o2.getDatePublication().compareTo(o1.getDatePublication()))
- .limit(5)
- .collect(java.util.stream.Collectors.toList());
-}
-request.setAttribute("dernieresOffres", dernieresOffres);
+// Debug
+System.out.println("=== DASHBOARD STATS ===");
+System.out.println("Total: " + totalReservations);
+System.out.println("En attente: " + reservationsEnAttente);
+System.out.println("Confirmées: " + reservationsConfirmees);
+System.out.println("Terminées: " + reservationsTerminees);
+System.out.println("Annulées: " + reservationsAnnulees);
 }
 } catch (Exception e) {
 e.printStackTrace();
 request.setAttribute("error", "Erreur lors du chargement des statistiques: " + e.getMessage());
-request.setAttribute("totalOffres", 0);
-request.setAttribute("offresActives", 0);
 request.setAttribute("totalReservations", 0);
-request.setAttribute("demandesEnAttente", 0);
+request.setAttribute("reservationsEnAttente", 0);
+request.setAttribute("reservationsConfirmees", 0);
+request.setAttribute("reservationsTerminees", 0);
+request.setAttribute("reservationsAnnulees", 0);
+request.setAttribute("offresDisponibles", 0);
 }
 
 request.setAttribute("page", "dashboard");
-request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
+request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
 }
-    
-    private void afficherOffres(HttpServletRequest request, HttpServletResponse response, 
-            Conducteur conducteur) throws ServletException, IOException {
+    private void afficherRechercher(HttpServletRequest request, HttpServletResponse response, 
+                                    Passager passager) throws ServletException, IOException {
         try {
-            Long conducteurId = conducteur.getId();
-            if (conducteurId == null) {
-                request.setAttribute("error", "Erreur: ID conducteur non trouvé");
-                request.setAttribute("offres", new java.util.ArrayList<>());
-            } else {
-                List<Offre> offres = offreDAO.findByConducteur(conducteurId);
-                request.setAttribute("offres", offres);
-
-                // Calculer les statistiques simplement
-                int totalOffres = offres.size();
-                int offresActives = 0;      // VALIDEE
-                int offresTerminees = 0;    // TERMINEE
-                int offresAnnulees = 0;     // ANNULEE
-                int offresEnAttente = 0;    // EN_ATTENTE
-
-                for (Offre offre : offres) {
-                    String statut = offre.getStatut();
-                    if ("VALIDEE".equals(statut)) {
-                        offresActives++;
-                    } else if ("TERMINEE".equals(statut)) {
-                        offresTerminees++;
-                    } else if ("ANNULEE".equals(statut)) {
-                        offresAnnulees++;
-                    } else if ("EN_ATTENTE".equals(statut)) {
-                        offresEnAttente++;
-                    }
-                }
-
-                request.setAttribute("totalOffres", totalOffres);
-                request.setAttribute("offresActives", offresActives);
-                request.setAttribute("offresTerminees", offresTerminees);
-                request.setAttribute("offresAnnulees", offresAnnulees);
-                request.setAttribute("offresEnAttente", offresEnAttente);
+            // Récupérer toutes les offres disponibles
+            List<Offre> offres = offreDAO.findValidee();
+            
+            // Filtrage (si des paramètres de recherche sont fournis)
+            String villeDepart = request.getParameter("villeDepart");
+            String villeArrivee = request.getParameter("villeArrivee");
+            String dateDepart = request.getParameter("dateDepart");
+            
+            if (villeDepart != null && !villeDepart.isEmpty()) {
+                offres = offres.stream()
+                    .filter(o -> o.getVilleDepart().equalsIgnoreCase(villeDepart))
+                    .collect(Collectors.toList());
             }
+            
+            if (villeArrivee != null && !villeArrivee.isEmpty()) {
+                offres = offres.stream()
+                    .filter(o -> o.getVilleArrivee().equalsIgnoreCase(villeArrivee))
+                    .collect(Collectors.toList());
+            }
+            
+            if (dateDepart != null && !dateDepart.isEmpty()) {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                Date searchDate = sdf.parse(dateDepart);
+                offres = offres.stream()
+                    .filter(o -> {
+                        String offreDate = sdf.format(o.getDateDepart());
+                        String searchDateStr = sdf.format(searchDate);
+                        return offreDate.equals(searchDateStr);
+                    })
+                    .collect(Collectors.toList());
+            }
+            
+            request.setAttribute("offres", offres);
+            request.setAttribute("villeDepart", villeDepart);
+            request.setAttribute("villeArrivee", villeArrivee);
+            request.setAttribute("dateDepart", dateDepart);
+            
         } catch (Exception e) {
             e.printStackTrace();
-            request.setAttribute("error", "Erreur lors du chargement des offres: " + e.getMessage());
+            request.setAttribute("error", "Erreur lors de la recherche: " + e.getMessage());
             request.setAttribute("offres", new java.util.ArrayList<>());
         }
-        request.setAttribute("page", "offres");
-        request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
-    }    
-    private void afficherFormPublier(HttpServletRequest request, HttpServletResponse response, 
-                                     Conducteur conducteur) throws ServletException, IOException {
-        request.setAttribute("page", "publier");
-        request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
+        
+        request.setAttribute("page", "rechercher");
+        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
     }
-    
-    private void afficherDemandes(HttpServletRequest request, HttpServletResponse response, 
-            Conducteur conducteur) throws ServletException, IOException {
+    private void afficherHistorique(HttpServletRequest request, HttpServletResponse response, 
+            Passager passager) throws ServletException, IOException {
         try {
-            Long conducteurId = conducteur.getId();
+            Long passagerId = passager.getId();
 
-            if (conducteurId == null) {
-                request.setAttribute("error", "Erreur: ID conducteur non trouvé");
+            if (passagerId == null) {
+                request.setAttribute("error", "Erreur: ID passager non trouvé");
                 request.setAttribute("reservations", new ArrayList<>());
-                request.setAttribute("enAttente", new ArrayList<>());
-                request.setAttribute("confirmees", new ArrayList<>());
-                request.setAttribute("annulees", new ArrayList<>());
-                request.setAttribute("terminees", new ArrayList<>());
-                request.setAttribute("nbEnAttente", 0);
-                request.setAttribute("nbConfirmees", 0);
-                request.setAttribute("nbAnnulees", 0);
-                request.setAttribute("nbTerminees", 0);
-                request.setAttribute("totalReservations", 0);
             } else {
-                // ✅ CORRECTION: Récupérer TOUTES les réservations pour le conducteur
-                List<Reservation> reservations = reservationDAO.findByConducteur(conducteurId);
-                
-                System.out.println("=== DEBUG: Réservations trouvées pour conducteur " + conducteurId + ": " + reservations.size());
+                List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
 
-                // ✅ Initialiser les listes AVANT la boucle
-                List<Reservation> enAttente = new ArrayList<>();
-                List<Reservation> confirmees = new ArrayList<>();
-                List<Reservation> annulees = new ArrayList<>();
-                List<Reservation> terminees = new ArrayList<>();
+                List<Reservation> historiqueReservations = reservations.stream()
+                    .filter(r -> "TERMINEE".equals(r.getStatut()) || "ANNULEE".equals(r.getStatut()))
+                    .sorted((r1, r2) -> r2.getDateReservation().compareTo(r1.getDateReservation()))
+                    .collect(Collectors.toList());
 
-                // ✅ Parcourir TOUTES les réservations et les classer par statut
-                for (Reservation res : reservations) {
-                    String statut = res.getStatut();
-                    System.out.println("DEBUG: Réservation ID=" + res.getIdReservation() + 
-                                     ", Statut=" + statut + 
-                                     ", Passager=" + (res.getPassager() != null ? res.getPassager().getNom() : "null"));
-                    
-                    // ✅ CORRECTION: Normaliser le statut (trim + uppercase)
-                    if (statut != null) {
-                        statut = statut.trim().toUpperCase();
-                        
-                        if ("EN_ATTENTE".equals(statut)) {
-                            enAttente.add(res);
-                            System.out.println("  -> Ajouté à EN_ATTENTE");
-                        } else if ("CONFIRMEE".equals(statut)) {
-                            confirmees.add(res);
-                            System.out.println("  -> Ajouté à CONFIRMEE");
-                        } else if ("ANNULEE".equals(statut)) {
-                            annulees.add(res);
-                            System.out.println("  -> Ajouté à ANNULEE");
-                        } else if ("TERMINEE".equals(statut)) {
-                            terminees.add(res);
-                            System.out.println("  -> Ajouté à TERMINEE");
-                        } else {
-                            System.out.println("  -> STATUT INCONNU: " + statut);
-                        }
-                    } else {
-                        System.out.println("  -> STATUT NULL!");
-                    }
-                }
+                request.setAttribute("reservations", historiqueReservations);
 
-                // ✅ Passer TOUTES les données à la JSP
-                request.setAttribute("reservations", reservations);
-                request.setAttribute("enAttente", enAttente);
-                request.setAttribute("confirmees", confirmees);
-                request.setAttribute("annulees", annulees);
-                request.setAttribute("terminees", terminees);
-                request.setAttribute("nbEnAttente", enAttente.size());
-                request.setAttribute("nbConfirmees", confirmees.size());
-                request.setAttribute("nbAnnulees", annulees.size());
-                request.setAttribute("nbTerminees", terminees.size());
-                request.setAttribute("totalReservations", reservations.size());
-                
-                System.out.println("=== DEBUG STATS FINALES ===");
-                System.out.println("En Attente: " + enAttente.size());
-                System.out.println("Confirmées: " + confirmees.size());
-                System.out.println("Annulées: " + annulees.size());
-                System.out.println("Terminées: " + terminees.size());
-                System.out.println("Total: " + reservations.size());
+                int nbTerminees = (int) historiqueReservations.stream()
+                    .filter(r -> "TERMINEE".equals(r.getStatut()))
+                    .count();
+                int nbAnnulees = (int) historiqueReservations.stream()
+                    .filter(r -> "ANNULEE".equals(r.getStatut()))
+                    .count();
+
+                request.setAttribute("nbTerminees", nbTerminees);
+                request.setAttribute("nbAnnulees", nbAnnulees);
+                request.setAttribute("totalHistorique", historiqueReservations.size());
             }
         } catch (Exception e) {
             e.printStackTrace();
-            System.err.println("ERREUR dans afficherDemandes: " + e.getMessage());
-            request.setAttribute("error", "Erreur lors du chargement des demandes: " + e.getMessage());
+            request.setAttribute("error", "Erreur lors du chargement de l'historique: " + e.getMessage());
             request.setAttribute("reservations", new ArrayList<>());
-            request.setAttribute("enAttente", new ArrayList<>());
-            request.setAttribute("confirmees", new ArrayList<>());
-            request.setAttribute("annulees", new ArrayList<>());
-            request.setAttribute("terminees", new ArrayList<>());
-            request.setAttribute("nbEnAttente", 0);
-            request.setAttribute("nbConfirmees", 0);
-            request.setAttribute("nbAnnulees", 0);
-            request.setAttribute("nbTerminees", 0);
-            request.setAttribute("totalReservations", 0);
         }
 
-        request.setAttribute("page", "demandes");
-        request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
+        request.setAttribute("page", "historique");
+        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
+    } 
+    private void afficherReservations(HttpServletRequest request, HttpServletResponse response, 
+            Passager passager) throws ServletException, IOException {
+        try {
+            Long passagerId = passager.getId();
+
+            if (passagerId == null) {
+                request.setAttribute("error", "Erreur: ID passager non trouvé");
+                request.setAttribute("reservations", new java.util.ArrayList<>());
+            } else {
+                List<Reservation> reservations = reservationDAO.findByPassager(passagerId);
+                
+                // ✅ FILTRER : Seulement EN_ATTENTE et CONFIRMEE
+                List<Reservation> reservationsActives = reservations.stream()
+                    .filter(r -> "EN_ATTENTE".equals(r.getStatut()) || "CONFIRMEE".equals(r.getStatut()))
+                    .collect(Collectors.toList());
+                
+                request.setAttribute("reservations", reservationsActives);
+
+                // Calculer les statistiques seulement pour les réservations actives
+                int enAttente = 0, confirmees = 0;
+                for (Reservation res : reservationsActives) {
+                    String statut = res.getStatut();
+                    if ("EN_ATTENTE".equals(statut)) enAttente++;
+                    else if ("CONFIRMEE".equals(statut)) confirmees++;
+                }
+
+                request.setAttribute("nbEnAttente", enAttente);
+                request.setAttribute("nbConfirmees", confirmees);
+                request.setAttribute("totalReservations", reservationsActives.size());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            request.setAttribute("error", "Erreur lors du chargement des réservations: " + e.getMessage());
+            request.setAttribute("reservations", new java.util.ArrayList<>());
+        }
+
+        request.setAttribute("page", "reservations");
+        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
     }
-    
-    private void afficherEvaluations(HttpServletRequest request, HttpServletResponse response, 
-            Conducteur conducteur) throws ServletException, IOException {
-try {
-Long conducteurId = conducteur.getId();
-if (conducteurId == null) {
-request.setAttribute("error", "Erreur: ID conducteur non trouvé");
-request.setAttribute("evaluations", new ArrayList<>());
-request.setAttribute("totalEvaluations", 0);
-request.setAttribute("noteMoyenne", 0.0);
-request.setAttribute("distributionNotes", new int[6]);
-} else {
-// ✅ CORRECTION: Récupérer les évaluations où le conducteur est ÉVALUÉ (id_evalue)
-List<Evaluation> evaluations = evaluationDAO.findByEvalue(conducteurId);
-int totalEvaluations = evaluationDAO.countEvaluationsByEvalue(conducteurId);
-Double noteMoyenne = evaluationDAO.calculateNoteMoyenne(conducteurId);
-
-// Distribution des notes
-int[] distributionNotes = new int[6];
-for (Evaluation eval : evaluations) {
-if (eval.getNote() >= 1 && eval.getNote() <= 5) {
-distributionNotes[eval.getNote()]++;
-}
-}
-
-request.setAttribute("evaluations", evaluations);
-request.setAttribute("totalEvaluations", totalEvaluations);
-request.setAttribute("noteMoyenne", noteMoyenne != null ? noteMoyenne : 0.0);
-request.setAttribute("distributionNotes", distributionNotes);
-
-// Debug
-System.out.println("=== DEBUG EVALUATIONS CONDUCTEUR ===");
-System.out.println("ID Conducteur: " + conducteurId);
-System.out.println("Évaluations trouvées: " + evaluations.size());
-System.out.println("Note moyenne: " + noteMoyenne);
-}
-} catch (Exception e) {
-e.printStackTrace();
-request.setAttribute("error", "Erreur lors du chargement des évaluations: " + e.getMessage());
-request.setAttribute("evaluations", new ArrayList<>());
-request.setAttribute("totalEvaluations", 0);
-request.setAttribute("noteMoyenne", 0.0);
-request.setAttribute("distributionNotes", new int[6]);
-}
-request.setAttribute("page", "evaluations");
-request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
-}
-    
     private void afficherProfil(HttpServletRequest request, HttpServletResponse response, 
-            Conducteur conducteur) throws ServletException, IOException {
-try {
-Long conducteurId = conducteur.getId();
-
-// Récupérer les statistiques réelles
-List<Offre> offres = offreDAO.findByConducteur(conducteurId);
-
-// Calculer le nombre de trajets effectués (offres terminées)
-int nombreTrajets = 0;
-int nombrePassagers = 0;
-
-for (Offre offre : offres) {
-if ("TERMINEE".equals(offre.getStatut())) {
- nombreTrajets++;
- // Récupérer le nombre de passagers pour cette offre
- List<Reservation> reservations = reservationDAO.findByOffre(offre.getIdOffre());
- for (Reservation res : reservations) {
-     if ("CONFIRMEE".equals(res.getStatut()) || "TERMINEE".equals(res.getStatut())) {
-         nombrePassagers += res.getNombrePlaces();
-     }
- }
-}
-}
-
-// Récupérer la note moyenne
-Double noteMoyenne = evaluationDAO.calculateNoteMoyenne(conducteurId);
-if (noteMoyenne == null) {
-noteMoyenne = 0.0;
-}
-
-// Passer les données à la JSP
-request.setAttribute("nombreTrajets", nombreTrajets);
-request.setAttribute("nombrePassagers", nombrePassagers);
-request.setAttribute("noteMoyenne", noteMoyenne);
-
-} catch (Exception e) {
-e.printStackTrace();
-// En cas d'erreur, utiliser des valeurs par défaut
-request.setAttribute("nombreTrajets", 0);
-request.setAttribute("nombrePassagers", 0);
-request.setAttribute("noteMoyenne", conducteur.getNoteMoyenne());
-}
-
-request.setAttribute("page", "profil");
-request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, response);
-}
-    
+                                Passager passager) throws ServletException, IOException {
+        request.setAttribute("page", "profil");
+        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
+    }
     
     // ========== Méthodes d'action POST ==========
     
-    private void publierOffre(HttpServletRequest request, HttpServletResponse response) 
+    private void reserverTrajet(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
         HttpSession session = request.getSession();
-        Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
+        Passager passager = (Passager) session.getAttribute("utilisateur");
         
         try {
-            // ✅ CORRECTION CRITIQUE: Vérifier que l'ID existe
-            Long conducteurId = conducteur.getId();
-            if (conducteurId == null) {
-                session.setAttribute("error", "Erreur: Impossible de récupérer l'ID du conducteur. Veuillez vous reconnecter.");
-                response.sendRedirect("Conducteur?page=publier");
+            Long passagerId = passager.getId();
+            if (passagerId == null) {
+                session.setAttribute("error", "Erreur: Impossible de récupérer l'ID du passager");
+                response.sendRedirect("Passager?page=rechercher");
                 return;
             }
             
             // Récupérer les données du formulaire
-            String villeDepart = request.getParameter("villeDepart");
-            String villeArrivee = request.getParameter("villeArrivee");
-            String dateDepartStr = request.getParameter("dateDepart");
-            String heureDepartStr = request.getParameter("heureDepart");
-            String prixParPlaceStr = request.getParameter("prixParPlace");
+            String offreIdStr = request.getParameter("offreId");
             String nombrePlacesStr = request.getParameter("nombrePlaces");
-            String commentaire = request.getParameter("description");
+            String messagePassager = request.getParameter("message");
             
-            // Validation
-            if (villeDepart == null || villeDepart.isEmpty() || 
-                villeArrivee == null || villeArrivee.isEmpty() ||
-                dateDepartStr == null || dateDepartStr.isEmpty() ||
-                heureDepartStr == null || heureDepartStr.isEmpty() ||
-                prixParPlaceStr == null || prixParPlaceStr.isEmpty() ||
+            if (offreIdStr == null || offreIdStr.isEmpty() || 
                 nombrePlacesStr == null || nombrePlacesStr.isEmpty()) {
-                
                 session.setAttribute("error", "Tous les champs obligatoires doivent être remplis");
-                response.sendRedirect("Conducteur?page=publier");
+                response.sendRedirect("Passager?page=rechercher");
                 return;
             }
             
-            // Convertir les données
-            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+            Long offreId = Long.parseLong(offreIdStr);
+            Integer nombrePlaces = Integer.parseInt(nombrePlacesStr);
             
-            Date dateDepart = dateFormat.parse(dateDepartStr);
-            Time heureDepart = new Time(timeFormat.parse(heureDepartStr).getTime());
-            Double prixParPlace = Double.parseDouble(prixParPlaceStr);
-            Integer placesTotales = Integer.parseInt(nombrePlacesStr);
+            // Récupérer l'offre
+            Offre offre = offreDAO.findById(offreId);
             
-            // Créer l'offre avec l'ID du conducteur
-            Offre offre = new Offre(
-                conducteurId,  // ✅ Utiliser l'ID vérifié
-                villeDepart,
-                villeArrivee,
-                dateDepart,
-                heureDepart,
-                prixParPlace,
-                placesTotales
-            );
-            offre.setCommentaire(commentaire);
-            
-            // Sauvegarder en base
-            Long offreId = offreDAO.create(offre);
-            
-            if (offreId != null) {
-                session.setAttribute("success", "Offre publiée avec succès!");
-                response.sendRedirect("Conducteur?page=offres");
-            } else {
-                session.setAttribute("error", "Erreur lors de la publication de l'offre");
-                response.sendRedirect("Conducteur?page=publier");
+            if (offre == null) {
+                session.setAttribute("error", "Offre introuvable");
+                response.sendRedirect("Passager?page=rechercher");
+                return;
             }
             
-        } catch (ParseException e) {
-            e.printStackTrace();
-            session.setAttribute("error", "Erreur de format de date/heure: " + e.getMessage());
-            response.sendRedirect("Conducteur?page=publier");
-        } catch (NumberFormatException e) {
-            e.printStackTrace();
-            session.setAttribute("error", "Erreur de format de nombre: " + e.getMessage());
-            response.sendRedirect("Conducteur?page=publier");
-        } catch (Exception e) {
-            e.printStackTrace();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
-            response.sendRedirect("Conducteur?page=publier");
-        }
-    }
-    private void terminerReservation(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String reservationIdStr = request.getParameter("reservationId");
-            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
-                Long reservationId = Long.parseLong(reservationIdStr);
-                
-                // Mettre à jour le statut de la réservation à TERMINEE
-                boolean success = reservationDAO.updateStatut(reservationId, "TERMINEE");
-                
-                HttpSession session = request.getSession();
-                if (success) {
-                    session.setAttribute("success", "✅ Trajet marqué comme terminé !");
-                } else {
-                    session.setAttribute("error", "❌ Erreur lors de la mise à jour");
-                }
+            // Vérifier que l'offre est validée
+            if (!"VALIDEE".equals(offre.getStatut())) {
+                session.setAttribute("error", "Cette offre n'est pas disponible pour réservation");
+                response.sendRedirect("Passager?page=rechercher");
+                return;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
-        }
-        response.sendRedirect("Conducteur?page=demandes");
-    }
-    
-    private void annulerOffre(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String offreIdStr = request.getParameter("offreId");
-            if (offreIdStr != null && !offreIdStr.isEmpty()) {
-                Long offreId = Long.parseLong(offreIdStr);
-                boolean success = offreDAO.updateStatut(offreId, "ANNULEE");
-                
-                HttpSession session = request.getSession();
-                if (success) {
-                    session.setAttribute("success", "Offre annulée avec succès!");
-                } else {
-                    session.setAttribute("error", "Erreur lors de l'annulation de l'offre");
-                }
+            
+            // Vérifier la disponibilité
+            if (!offre.verifierDisponibilite(nombrePlaces)) {
+                session.setAttribute("error", "Pas assez de places disponibles");
+                response.sendRedirect("Passager?page=rechercher");
+                return;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
-        }
-        response.sendRedirect("Conducteur?page=offres");
-    }
-    
-    private void marquerEffectuee(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String offreIdStr = request.getParameter("offreId");
-            if (offreIdStr != null && !offreIdStr.isEmpty()) {
-                Long offreId = Long.parseLong(offreIdStr);
-                boolean success = offreDAO.updateStatut(offreId, "TERMINEE");
-                
-                HttpSession session = request.getSession();
-                if (success) {
-                    session.setAttribute("success", "Offre marquée comme terminée!");
-                } else {
-                    session.setAttribute("error", "Erreur lors de la mise à jour de l'offre");
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
-        }
-        response.sendRedirect("Conducteur?page=offres");
-    }
-    
+            
+            // Calculer le prix total
+            Double prixTotal = offre.getPrixParPlace() * nombrePlaces;
+            
+            // Créer la réservation avec statut EN_ATTENTE
+            Reservation reservation = new Reservation();
+            reservation.setOffre(offre);
+            reservation.setPassager(passager);
+            reservation.setNombrePlaces(nombrePlaces);
+            reservation.setPrixTotal(prixTotal);
 
-    private void confirmerReservation(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        try {
-            String reservationIdStr = request.getParameter("reservationId");
-            System.out.println("=== DÉBUT confirmerReservation ===");
-            System.out.println("Reservation ID reçu: " + reservationIdStr);
+            reservation.setStatut("EN_ATTENTE");
+            reservation.setDateReservation(new Date());
+            reservation.setMessagePassager(messagePassager);
             
-            if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
-                Long reservationId = Long.parseLong(reservationIdStr);
+            // Sauvegarder la réservation
+            Long reservationId = reservationDAO.create(reservation);
+            
+            
+            if (reservationId != null) {
+                // 1. NOTIFICATION BDD (Persistance)
+                Long conducteurId = offre.getIdConducteur();
+                String notifMessageDB = String.format(
+                    "%s a fait une demande de réservation pour %d place(s) sur votre trajet %s->%s.",
+                    passager.getPrenom(), nombrePlaces, offre.getVilleDepart(), offre.getVilleArrivee()
+                );
                 
-                // Récupérer la réservation
-                Reservation reservation = reservationDAO.findById(reservationId);
-                System.out.println("Réservation trouvée: " + (reservation != null));
+                Notification notificationDB = new Notification(conducteurId, notifMessageDB);
+                notificationDAO.create(notificationDB); // Sauvegarde
                 
-                if (reservation != null) {
-                    System.out.println("Statut actuel: " + reservation.getStatut());
-                    System.out.println("Nombre de places: " + reservation.getNombrePlaces());
-                    
-                    if ("EN_ATTENTE".equals(reservation.getStatut())) {
-                        // Vérifier qu'il y a assez de places
-                        Offre offre = reservation.getOffre();
-                        System.out.println("Offre ID: " + offre.getIdOffre());
-                        System.out.println("Places disponibles: " + offre.getPlacesDisponibles());
-                        System.out.println("Places demandées: " + reservation.getNombrePlaces());
-                        
-                        if (offre.verifierDisponibilite(reservation.getNombrePlaces())) {
-                            // Mettre à jour le statut à CONFIRMEE
-                            System.out.println("Tentative de confirmation...");
-                            boolean success = reservationDAO.updateStatut(reservationId, "CONFIRMEE");
-                            System.out.println("Mise à jour statut réussie: " + success);
-                            
-                            if (success) {
-                                // ✅ Maintenant on met à jour les places disponibles
-                                Integer nouvellePlaces = offre.getPlacesDisponibles() - reservation.getNombrePlaces();
-                                System.out.println("Nouvelles places disponibles: " + nouvellePlaces);
-                                
-                                boolean updatePlacesSuccess = offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
-                                System.out.println("Mise à jour places réussie: " + updatePlacesSuccess);
-                                
-                                HttpSession session = request.getSession();
-                                if (updatePlacesSuccess) {
-                                    session.setAttribute("success", "✅ Réservation confirmée avec succès!");
-                                } else {
-                                    session.setAttribute("error", "⚠ Réservation confirmée mais erreur mise à jour places");
-                                }
-                            } else {
-                                HttpSession session = request.getSession();
-                                session.setAttribute("error", "❌ Erreur lors de la confirmation du statut");
-                            }
-                        } else {
-                            System.out.println("Pas assez de places disponibles");
-                            HttpSession session = request.getSession();
-                            session.setAttribute("error", "❌ Plus assez de places disponibles");
-                        }
-                    } else {
-                        System.out.println("Statut incorrect pour confirmation: " + reservation.getStatut());
-                        HttpSession session = request.getSession();
-                        session.setAttribute("error", "❌ Cette réservation ne peut pas être confirmée (statut: " + reservation.getStatut() + ")");
-                    }
-                } else {
-                    System.out.println("Réservation non trouvée");
-                    HttpSession session = request.getSession();
-                    session.setAttribute("error", "❌ Réservation introuvable");
-                }
+                // 2. NOTIFICATION WEB SOCKET (Temps Réel)
+                String jsonPayload = String.format(
+                    "{\"type\": \"nouvelleReservation\", \"message\": \"Nouvelle demande de réservation en attente!\", \"reservationId\": %d, \"senderId\": %d}",
+                    reservationId, passagerId
+                );
+                
+                // Envoi au conducteur
+                NotificationWebSocketEndpoint.sendNotificationToUser(conducteurId, jsonPayload);
+
+                session.setAttribute("success", "Demande de réservation envoyée ! En attente de confirmation du conducteur.");
+                response.sendRedirect("Passager?page=reservations");
             } else {
-                System.out.println("Aucun ID de réservation reçu");
-                HttpSession session = request.getSession();
-                session.setAttribute("error", "❌ Aucune réservation spécifiée");
+                session.setAttribute("error", "Erreur lors de la réservation");
+                response.sendRedirect("Passager?page=rechercher");
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            session.setAttribute("error", "Erreur: " + e.getMessage());
+            response.sendRedirect("Passager?page=rechercher");
+        }
+    } 
+    private void afficherEvaluations(HttpServletRequest request, HttpServletResponse response, 
+            Passager passager) throws ServletException, IOException {
+        try {
+            Long passagerId = passager.getId();
+            if (passagerId == null) {
+                request.setAttribute("error", "Erreur: ID passager non trouvé");
+            } else {
+                List<Evaluation> evaluations = evaluationDAO.findByEvalue(passagerId);
+                int totalEvaluations = evaluationDAO.countEvaluationsByEvalue(passagerId);
+                Double noteMoyenne = evaluationDAO.calculateNoteMoyenne(passagerId);
+
+                // Distribution des notes
+                int[] distributionNotes = new int[6];
+                for (Evaluation eval : evaluations) {
+                    Integer note = eval.getNote();
+                    if (note != null && note >= 1 && note <= 5) {
+                        distributionNotes[note]++;
+                    }
+                }
+
+                request.setAttribute("evaluations", evaluations);
+                request.setAttribute("totalEvaluations", totalEvaluations);
+                request.setAttribute("noteMoyenne", noteMoyenne != null ? noteMoyenne : 0.0);
+                request.setAttribute("distributionNotes", distributionNotes);
             }
         } catch (Exception e) {
-            System.err.println("ERREUR dans confirmerReservation: " + e.getMessage());
             e.printStackTrace();
-            HttpSession session = request.getSession();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
+            request.setAttribute("error", "Erreur lors du chargement des évaluations");
         }
-        System.out.println("=== FIN confirmerReservation ===");
-        response.sendRedirect("Conducteur?page=demandes");
+        
+        // Valeurs par défaut
+        if (request.getAttribute("evaluations") == null) {
+            request.setAttribute("evaluations", new ArrayList<>());
+            request.setAttribute("totalEvaluations", 0);
+            request.setAttribute("noteMoyenne", 0.0);
+            request.setAttribute("distributionNotes", new int[6]);
+        }
+        
+        request.setAttribute("page", "evaluations");
+        request.getRequestDispatcher("dashboardPassager.jsp").forward(request, response);
     }
-    
-    private void refuserReservation(HttpServletRequest request, HttpServletResponse response) 
+    private void annulerReservation(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         try {
             String reservationIdStr = request.getParameter("reservationId");
-            String motifRefus = request.getParameter("motif");
-            
-            System.out.println("=== DÉBUT refuserReservation ===");
-            System.out.println("Reservation ID reçu: " + reservationIdStr);
-            System.out.println("Motif reçu: " + motifRefus);
-            
             if (reservationIdStr != null && !reservationIdStr.isEmpty()) {
                 Long reservationId = Long.parseLong(reservationIdStr);
                 
                 // Récupérer la réservation
                 Reservation reservation = reservationDAO.findById(reservationId);
-                System.out.println("Réservation trouvée: " + (reservation != null));
                 
-                if (reservation != null) {
+                if (reservation != null && reservation.peutEtreAnnulee()) {
                     String statutActuel = reservation.getStatut();
-                    System.out.println("Statut actuel: " + statutActuel);
                     
-                    // Mettre à jour le statut à ANNULEE
-                    System.out.println("Tentative d'annulation...");
+                    // Annuler la réservation
                     boolean success = reservationDAO.updateStatut(reservationId, "ANNULEE");
-                    System.out.println("Mise à jour statut réussie: " + success);
                     
                     if (success) {
-                        // ✅ Si la réservation était CONFIRMEE, remettre les places
+                        // ✅ Remettre les places SEULEMENT si la réservation était CONFIRMEE
                         if ("CONFIRMEE".equals(statutActuel)) {
                             Offre offre = reservation.getOffre();
                             Integer nouvellePlaces = offre.getPlacesDisponibles() + reservation.getNombrePlaces();
-                            System.out.println("Remise des places - nouvelles places: " + nouvellePlaces);
-                            
-                            boolean updatePlacesSuccess = offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
-                            System.out.println("Mise à jour places réussie: " + updatePlacesSuccess);
+                            offreDAO.updatePlacesDisponibles(offre.getIdOffre(), nouvellePlaces);
                         }
+                        // Si EN_ATTENTE, pas besoin de remettre les places
                         
                         HttpSession session = request.getSession();
-                        String message = "❌ Réservation refusée";
-                        if (motifRefus != null && !motifRefus.trim().isEmpty()) {
-                            message += " - Motif: " + motifRefus;
-                        }
-                        session.setAttribute("success", message);
+                        session.setAttribute("success", "Réservation annulée avec succès!");
                     } else {
-                        System.out.println("Échec de la mise à jour du statut");
                         HttpSession session = request.getSession();
-                        session.setAttribute("error", "❌ Erreur lors du refus");
+                        session.setAttribute("error", "Erreur lors de l'annulation");
                     }
                 } else {
-                    System.out.println("Réservation non trouvée");
                     HttpSession session = request.getSession();
-                    session.setAttribute("error", "❌ Réservation introuvable");
+                    session.setAttribute("error", "Cette réservation ne peut pas être annulée");
                 }
-            } else {
-                System.out.println("Aucun ID de réservation reçu");
-                HttpSession session = request.getSession();
-                session.setAttribute("error", "❌ Aucune réservation spécifiée");
             }
         } catch (Exception e) {
-            System.err.println("ERREUR dans refuserReservation: " + e.getMessage());
             e.printStackTrace();
             HttpSession session = request.getSession();
             session.setAttribute("error", "Erreur: " + e.getMessage());
         }
-        System.out.println("=== FIN refuserReservation ===");
-        response.sendRedirect("Conducteur?page=demandes");
-    }
-    
+        response.sendRedirect("Passager?page=reservations");
+    }    
     private void updateProfil(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
         // 1. Récupérer l'utilisateur en session
-        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
+        Passager passager = (Passager) request.getSession().getAttribute("utilisateur");
         
         // Vérification de sécurité
-        if (conducteur == null) {
+        if (passager == null) {
             response.sendRedirect("connexion.jsp");
             return;
         }
@@ -798,154 +595,145 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
         String nouveauTelephone = request.getParameter("telephone");
 
         // 3. Mettre à jour l'objet en mémoire (très important !)
-        conducteur.setNom(nouveauNom);
-        conducteur.setPrenom(nouveauPrenom);
-        conducteur.setEmail(nouvelEmail);
-        conducteur.setTelephone(nouveauTelephone);
+        passager.setNom(nouveauNom);
+        passager.setPrenom(nouveauPrenom);
+        passager.setEmail(nouvelEmail);
+        passager.setTelephone(nouveauTelephone);
         
         try {
             // 4. Persister en Base de Données
-            // NOTE: Votre DAO update() gère la mise à jour des champs Utilisateur et Conducteur
-            conducteurDAO.update(conducteur); 
+            // NOTE: Votre DAO update() gère la mise à jour des champs Utilisateur et passager
+            passagerDAO.update(passager); 
             
             // 5. Mettre à jour la session avec le nouvel objet
-            request.getSession().setAttribute("utilisateur", conducteur);
+            request.getSession().setAttribute("utilisateur", passager);
             
             // 6. Redirection succès
-            response.sendRedirect("Conducteur?page=profil&success=true");
+            response.sendRedirect("passager?page=profil&success=true");
             
         } catch (SQLException e) {
             // Gérer les erreurs (ex: email déjà utilisé, contrainte unique violée)
             request.setAttribute("error", "Erreur lors de la mise à jour : " + e.getMessage());
-            response.sendRedirect("Conducteur?page=profil&error=true");
+            response.sendRedirect("passager?page=profil&error=true");
         }
     }
-    
-    private void updateVehicule(HttpServletRequest request, HttpServletResponse response) 
-            throws ServletException, IOException {
-        
-        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
-        if (conducteur == null) {
-            response.sendRedirect("connexion.jsp");
-            return;
-        }
-        
-        // Récupérer les données du véhicule
-        String nouvelleMarque = request.getParameter("marqueVehicule");
-        String nouveauModele = request.getParameter("modeleVehicule");
-        String nouvelleImmatriculation = request.getParameter("immatriculation");
-        int nouveauNombrePlaces = Integer.parseInt(request.getParameter("nombrePlaces"));
-
-        // Mettre à jour l'objet
-        conducteur.setMarqueVehicule(nouvelleMarque);
-        conducteur.setModeleVehicule(nouveauModele);
-        conducteur.setImmatriculation(nouvelleImmatriculation);
-        conducteur.setNombrePlacesVehicule(nouveauNombrePlaces);
-        
-        try {
-            // Persister en Base de Données
-            conducteurDAO.update(conducteur); 
-            
-            // Mettre à jour la session
-            request.getSession().setAttribute("utilisateur", conducteur);
-            
-            // Redirection succès
-            response.sendRedirect("Conducteur?page=profil&success=true");
-            
-        } catch (SQLException e) {
-            // Gérer les erreurs de BD
-            request.setAttribute("error", "Erreur lors de la mise à jour du véhicule : " + e.getMessage());
-            response.sendRedirect("Conducteur?page=profil&error=true");
-        }
-    }
- // Dans ConducteurServlet - Ajouter cette méthode
-    private void evaluerPassager(HttpServletRequest request, HttpServletResponse response) 
+ // Dans PassagerServlet - Ajouter cette méthode
+ // Dans la méthode evaluerConducteur - Remplacer cette partie
+    private void evaluerConducteur(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
         HttpSession session = request.getSession();
-        Conducteur conducteur = (Conducteur) session.getAttribute("utilisateur");
+        Passager passager = (Passager) session.getAttribute("utilisateur");
         
         try {
             String reservationIdStr = request.getParameter("reservationId");
-            String idPassagerStr = request.getParameter("idPassager");
+            String idConducteurStr = request.getParameter("idConducteur");
             String noteStr = request.getParameter("note");
             String commentaire = request.getParameter("commentaire");
             
-            if (reservationIdStr == null || idPassagerStr == null || noteStr == null) {
-                session.setAttribute("error", "Données d'évaluation manquantes");
-                response.sendRedirect("Conducteur?page=demandes");
+            // Validation des paramètres
+            if (reservationIdStr == null || reservationIdStr.isEmpty() || 
+                idConducteurStr == null || idConducteurStr.isEmpty() || 
+                noteStr == null || noteStr.isEmpty()) {
+                session.setAttribute("error", "Données d'évaluation incomplètes");
+                response.sendRedirect("Passager?page=historique");
                 return;
             }
             
             Long reservationId = Long.parseLong(reservationIdStr);
-            Long idPassager = Long.parseLong(idPassagerStr);
+            Long idConducteur = Long.parseLong(idConducteurStr);
             Integer note = Integer.parseInt(noteStr);
             
-            // Vérifier que la note est valide
+            // Validation de la note
             if (note < 1 || note > 5) {
-                session.setAttribute("error", "La note doit être entre 1 et 5");
-                response.sendRedirect("Conducteur?page=demandes");
+                session.setAttribute("error", "La note doit être comprise entre 1 et 5 étoiles");
+                response.sendRedirect("Passager?page=historique");
                 return;
             }
             
-            // Récupérer la réservation pour avoir l'ID de l'offre
+            // Récupération de la réservation
             Reservation reservation = reservationDAO.findById(reservationId);
             if (reservation == null) {
-                session.setAttribute("error", "Réservation introuvable");
-                response.sendRedirect("Conducteur?page=demandes");
+                session.setAttribute("error", "Réservation non trouvée");
+                response.sendRedirect("Passager?page=historique");
                 return;
             }
             
-            // Vérifier que le conducteur peut évaluer cette réservation
-            if (!reservation.getOffre().getIdConducteur().equals(conducteur.getId())) {
-                session.setAttribute("error", "Vous ne pouvez pas évaluer cette réservation");
-                response.sendRedirect("Conducteur?page=demandes");
+            // Vérification des permissions
+            if (!reservation.getPassager().getId().equals(passager.getId())) {
+                session.setAttribute("error", "Vous n'êtes pas autorisé à évaluer cette réservation");
+                response.sendRedirect("Passager?page=historique");
                 return;
             }
             
-            // CORRECTION : Utiliser l'instance evaluationDAO correctement
-            boolean evaluationExiste = evaluationDAO.existsForOffre(
+            // Vérification si le trajet est terminé
+            if (!"TERMINEE".equals(reservation.getStatut())) {
+                session.setAttribute("error", "Vous ne pouvez évaluer que les trajets terminés");
+                response.sendRedirect("Passager?page=historique");
+                return;
+            }
+            
+            // ✅ VÉRIFICATION CRITIQUE : Vérifier si déjà évalué
+            boolean dejaEvalue = evaluationDAO.existsForOffre(
                 reservation.getOffre().getIdOffre(), 
-                conducteur.getId(), 
-                idPassager
+                passager.getId(), 
+                idConducteur
             );
             
-            if (evaluationExiste) {
-                session.setAttribute("error", "Vous avez déjà évalué ce passager pour ce trajet");
-                response.sendRedirect("Conducteur?page=demandes");
+            System.out.println("DEBUG - Déjà évalué: " + dejaEvalue + 
+                             ", Offre: " + reservation.getOffre().getIdOffre() +
+                             ", Evaluateur: " + passager.getId() +
+                             ", Conducteur: " + idConducteur);
+            
+            if (dejaEvalue) {
+                session.setAttribute("error", "Vous avez déjà évalué ce conducteur pour ce trajet");
+                response.sendRedirect("Passager?page=historique");
                 return;
             }
             
-            // Créer l'évaluation
+            // Création de l'évaluation
             Evaluation evaluation = new Evaluation();
             evaluation.setIdOffre(reservation.getOffre().getIdOffre());
-            evaluation.setIdEvaluateur(conducteur.getId());
-            evaluation.setIdEvalue(idPassager);
+            evaluation.setIdEvaluateur(passager.getId());
+            evaluation.setIdEvalue(idConducteur);
             evaluation.setNote(note);
-            evaluation.setCommentaire(commentaire);
+            evaluation.setCommentaire(commentaire != null ? commentaire.trim() : null);
             evaluation.setDateEvaluation(new Date());
+            evaluation.setTypeEvaluateur("passager");
             
+            // Enregistrement de l'évaluation
             Long evaluationId = evaluationDAO.create(evaluation);
             
-            if (evaluationId != null) {
-                session.setAttribute("success", "✅ Évaluation envoyée avec succès !");
+            if (evaluationId != null && evaluationId > 0) {
+                session.setAttribute("success", "Évaluation envoyée avec succès ! Merci pour votre retour.");
+                
+                // Mettre à jour le statut "déjà évalué" dans la réservation
+                try {
+                    reservation.setEstEvalue(true);
+                    reservation.setEvaluation(evaluation);
+                    // Vous pouvez aussi mettre à jour en base si nécessaire
+                } catch (Exception e) {
+                    System.err.println("Warning: Impossible de mettre à jour le statut d'évaluation");
+                }
+                
             } else {
-                session.setAttribute("error", "❌ Erreur lors de l'envoi de l'évaluation");
+                session.setAttribute("error", "Une erreur est survenue lors de l'enregistrement de l'évaluation");
             }
             
+        } catch (NumberFormatException e) {
+            session.setAttribute("error", "Format de données invalide");
         } catch (Exception e) {
             e.printStackTrace();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
+            session.setAttribute("error", "Une erreur technique est survenue");
         }
         
-        response.sendRedirect("Conducteur?page=demandes");
+        response.sendRedirect("Passager?page=historique");
     }
-    
     private void updateMotDePasse(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
-        Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
-        if (conducteur == null) {
+        Passager passager = (Passager) request.getSession().getAttribute("utilisateur");
+        if (passager == null) {
             response.sendRedirect("connexion.jsp");
             return;
         }
@@ -958,7 +746,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
         // 1. Vérification côté serveur (Sécurité)
         if (!nouveauMotDePasse.equals(confirmerMotDePasse)) {
             // Les mots de passe ne correspondent pas
-            response.sendRedirect("Conducteur?page=profil&error=true&msg=Les mots de passe ne correspondent pas.");
+            response.sendRedirect("Passager?page=profil&error=true&msg=Les mots de passe ne correspondent pas.");
             return;
         }
         
@@ -966,27 +754,27 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
         // NOTE: C'est un point critique de sécurité. Assurez-vous d'utiliser un hachage (ex: BCrypt)
         // Supposons ici que vous avez une méthode 'checkPassword' dans votre UtilisateurDAO.
         // Pour l'exemple, nous allons utiliser le mot de passe clair si vous ne le hachez pas
-        if (!conducteur.getMotDePasse().equals(ancienMotDePasseForm)) {
-            response.sendRedirect("Conducteur?page=profil&error=true&msg=Ancien mot de passe incorrect.");
+        if (!passager.getMotDePasse().equals(ancienMotDePasseForm)) {
+            response.sendRedirect("Passager?page=profil&error=true&msg=Ancien mot de passe incorrect.");
             return;
         }
         
         // 3. Mettre à jour l'objet et la BD
-        conducteur.setMotDePasse(nouveauMotDePasse); // Assurez-vous de HACHER ce mot de passe avant la BD!
+        passager.setMotDePasse(nouveauMotDePasse); // Assurez-vous de HACHER ce mot de passe avant la BD!
         
         try {
             // Vous aurez besoin d'une méthode spécifique dans UtilisateurDAO pour mettre à jour UNIQUEMENT le mot de passe
-            // utilisateurDAO.updateMotDePasse(conducteur.getIdUtilisateur(), nouveauMotDePasse); 
-            conducteurDAO.update(conducteur); // Si update() gère aussi le mot de passe
+            // utilisateurDAO.updateMotDePasse(passager.getIdUtilisateur(), nouveauMotDePasse); 
+            passagerDAO.update(passager); // Si update() gère aussi le mot de passe
             
             // Mettre à jour la session
-            request.getSession().setAttribute("utilisateur", conducteur); 
+            request.getSession().setAttribute("utilisateur", passager); 
             
             // Redirection succès
-            response.sendRedirect("Conducteur?page=profil&success=true&msg=Mot de passe changé.");
+            response.sendRedirect("Passager?page=profil&success=true&msg=Mot de passe changé.");
             
         } catch (SQLException e) {
-            response.sendRedirect("Conducteur?page=profil&error=true&msg=Erreur de BD.");
+            response.sendRedirect("Passager?page=profil&error=true&msg=Erreur de BD.");
         }
     }
 }
