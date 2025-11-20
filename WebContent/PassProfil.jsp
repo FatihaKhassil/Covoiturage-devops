@@ -1,9 +1,22 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="models.Passager" %>
+<%@ page import="models.Evaluation" %>
+<%@ page import="java.util.List" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%
     Passager passager = (Passager) session.getAttribute("utilisateur");
     SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    
+    // ✅ RÉCUPÉRER LES DONNÉES DEPUIS LES ATTRIBUTS DE REQUÊTE
+    Integer nombreTrajets = (Integer) request.getAttribute("nombreTrajets");
+    Double noteMoyenne = (Double) request.getAttribute("noteMoyenne");
+    Integer totalEvaluations = (Integer) request.getAttribute("totalEvaluations");
+    List<Evaluation> evaluations = (List<Evaluation>) request.getAttribute("evaluations");
+    
+    // Valeurs par défaut si non définies
+    if (nombreTrajets == null) nombreTrajets = 0;
+    if (noteMoyenne == null) noteMoyenne = passager.getNoteMoyenne() != null ? passager.getNoteMoyenne() : 0.0;
+    if (totalEvaluations == null) totalEvaluations = 0;
 %>
 
 <style>
@@ -35,6 +48,8 @@
         font-size: 64px;
         color: white;
         font-weight: bold;
+        border: 4px solid white;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
     .profile-name {
@@ -60,9 +75,19 @@
         margin-bottom: 20px;
     }
     
-    .profile-rating .stars {
-        color: #f39c12;
+    /* ✅ Style pour les étoiles de notation dynamiques */
+    .star-rating {
+        display: inline-block;
+        letter-spacing: 2px;
+    }
+    
+    .star {
+        color: #ddd;
         font-size: 20px;
+    }
+    
+    .star.filled {
+        color: #f39c12;
     }
     
     .profile-rating .score {
@@ -82,6 +107,11 @@
         padding: 15px;
         background: #f8f9fa;
         border-radius: 8px;
+        transition: transform 0.2s;
+    }
+    
+    .stat-item:hover {
+        transform: translateY(-2px);
     }
     
     .stat-value {
@@ -278,7 +308,7 @@
     <!-- Profile Card -->
     <div class="profile-card">
         <div class="profile-avatar">
-            <%= passager.getPrenom().substring(0,1) + passager.getNom().substring(0,1) %>
+            <%= passager.getPrenom().substring(0,1).toUpperCase() + passager.getNom().substring(0,1).toUpperCase() %>
         </div>
         
         <h2 class="profile-name">
@@ -287,11 +317,38 @@
         
         <p class="profile-email"><%= passager.getEmail() %></p>
         
+        <!-- ✅ ÉTOILES DYNAMIQUES BASÉES SUR LA NOTE MOYENNE RÉELLE -->
         <div class="profile-rating">
-            <span class="stars">★★★★★</span>
-            <span class="score"><%= String.format("%.1f", passager.getNoteMoyenne()) %>/5</span>
+            <div class="star-rating">
+                <% 
+                    int note = (int) Math.round(noteMoyenne);
+                    for (int i = 1; i <= 5; i++) {
+                        if (i <= note) {
+                %>
+                    <span class="star filled">★</span>
+                <% 
+                        } else {
+                %>
+                    <span class="star">★</span>
+                <% 
+                        }
+                    }
+                %>
+            </div>
+            <span class="score"><%= String.format("%.1f", noteMoyenne) %>/5</span>
         </div>
         
+        <!-- ✅ STATISTIQUES DYNAMIQUES -->
+        <div class="profile-stats">
+            <div class="stat-item">
+                <div class="stat-value"><%= nombreTrajets %></div>
+                <div class="stat-label">Trajets Effectués</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value"><%= totalEvaluations %></div>
+                <div class="stat-label">Évaluations Reçues</div>
+            </div>
+        </div>
         
         <span class="profile-badge">✓ Vérifié</span>
         
@@ -349,6 +406,7 @@
                 </div>
             </form>
         </div>
+        
         <!-- Sécurité -->
         <div class="form-section">
             <div class="form-section-header">
@@ -450,5 +508,13 @@
         setTimeout(() => {
             document.getElementById('successMessage').classList.remove('show');
         }, 5000);
+    }
+    
+    // ✅ Afficher les erreurs s'il y en a
+    if (urlParams.get('error') === 'true') {
+        const errorMsg = urlParams.get('msg');
+        if (errorMsg) {
+            alert('Erreur: ' + decodeURIComponent(errorMsg));
+        }
     }
 </script>

@@ -146,13 +146,6 @@ public class OffreDAOImpl implements OffreDAO {
         }
     }
     
-    /**
-     * Met à jour le statut d'une offre
-     * @param offreId L'ID de l'offre
-     * @param statut Le nouveau statut (EN_ATTENTE, VALIDEE, TERMINEE, ANNULEE)
-     * @return true si la mise à jour a réussi, false sinon
-     * @throws SQLException si une erreur survient
-     */
     @Override
     public boolean updateStatut(Long offreId, String statut) throws SQLException {
         String sql = "UPDATE offre SET statut = ? WHERE id_offre = ?";
@@ -198,12 +191,7 @@ public class OffreDAOImpl implements OffreDAO {
             throw e;
         }
     }
-    /**
-     * Marque une offre comme effectuée et met à jour son statut
-     * @param offreId L'ID de l'offre
-     * @return true si la mise à jour a réussi
-     * @throws SQLException si une erreur survient
-     */
+ 
     public boolean marquerCommeEffectuee(Long offreId) throws SQLException {
         String sql = "UPDATE offre SET est_effectuee = true, statut = 'TERMINEE' WHERE id_offre = ?";
         
@@ -223,9 +211,7 @@ public class OffreDAOImpl implements OffreDAO {
         }
     }
     
-    /**
-     * Mappe un ResultSet vers un objet Offre
-     */
+  
     private Offre mapResultSetToOffre(ResultSet rs) throws SQLException {
         Offre offre = new Offre();
         offre.setIdOffre(rs.getLong("id_offre"));
@@ -244,4 +230,10 @@ public class OffreDAOImpl implements OffreDAO {
         
         return offre;
     }
+
+	@Override
+	public com.sun.jdi.connect.spi.Connection getConnection() throws SQLException {
+		
+		return null;
+	}
 }

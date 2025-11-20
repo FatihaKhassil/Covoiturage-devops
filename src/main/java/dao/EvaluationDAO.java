@@ -14,9 +14,10 @@ public interface EvaluationDAO {
     boolean delete(Long id) throws SQLException;
     Double calculateNoteMoyenne(Long evalueId) throws SQLException;
     int countEvaluationsByEvalue(Long evalueId) throws SQLException;
-	   Evaluation findByReservationAndEvaluateur(Long reservationId, Long evaluateurId, String typeEvaluateur);
-	    boolean evaluationExistsForReservation(Long reservationId, Long evaluateurId, String typeEvaluateur);
-	    boolean existsForOffre(Long idOffre, Long idEvaluateur, Long idEvalue);
-		Evaluation findByOffreAndEvaluateur(Long idOffre, Long idUtilisateur);
-	    
+    
+    Evaluation findByReservationAndEvaluateur(Long reservationId, Long evaluateurId, String typeEvaluateur) throws SQLException;
+    boolean evaluationExistsForReservation(Long reservationId, Long evaluateurId, String typeEvaluateur) throws SQLException;
+
+    boolean existsForOffre(Long idOffre, Long idEvaluateur, Long idEvalue) throws SQLException;
+    Evaluation findByOffreAndEvaluateur(Long idOffre, Long idUtilisateur) throws SQLException;
 }

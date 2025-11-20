@@ -17,7 +17,7 @@ public class ReservationDAOImpl implements ReservationDAO {
     
     public ReservationDAOImpl(Connection connection) {
         this.connection = connection;
-        this.evaluationDAO = new EvaluationDAOImpl(connection); // Initialiser EvaluationDAO
+        this.evaluationDAO = new EvaluationDAOImpl(connection); 
     }
     
     @Override
@@ -74,7 +74,7 @@ public class ReservationDAOImpl implements ReservationDAO {
             if (rs.next()) {
                 Reservation res = mapResultSetToReservation(rs);
                 
-                // ✅ VÉRIFIER SI DÉJÀ ÉVALUÉE
+
                 if ("TERMINEE".equals(res.getStatut())) {
                     boolean dejaEvalue = evaluationDAO.existsForOffre(
                         res.getOffre().getIdOffre(), 
@@ -171,7 +171,7 @@ public class ReservationDAOImpl implements ReservationDAO {
             while (rs.next()) {
                 Reservation res = mapResultSetToReservation(rs);
                 
-                // ✅ VÉRIFIER SI DÉJÀ ÉVALUÉE (seulement pour les trajets terminés)
+             
                 if ("TERMINEE".equals(res.getStatut())) {
                     boolean dejaEvalue = evaluationDAO.existsForOffre(
                         res.getOffre().getIdOffre(), 
@@ -188,7 +188,7 @@ public class ReservationDAOImpl implements ReservationDAO {
                         res.setEvaluation(evaluation);
                     }
                 } else {
-                    res.setEstEvalue(false); // Pas évaluable si pas terminé
+                    res.setEstEvalue(false);
                 }
                 
                 reservations.add(res);
@@ -234,7 +234,40 @@ public class ReservationDAOImpl implements ReservationDAO {
     }
     
     public List<Reservation> findAll() throws SQLException {
-        return new ArrayList<>();
+        List<Reservation> reservations = new ArrayList<>();
+        
+        String sql = "SELECT r.*, " +
+                     "o.id_offre, o.id_conducteur, o.ville_depart, o.ville_arrivee, " +
+                     "o.date_depart, o.heure_depart, o.prix_par_place, " +
+                     "o.places_disponibles, o.places_totales, " +
+                     "o.statut as offre_statut, o.date_publication, o.commentaire, " +
+                     "p.note_moyenne as passager_note, " +
+                     "up.nom as passager_nom, up.prenom as passager_prenom, " +
+                     "up.email as passager_email, up.telephone as passager_telephone, " +
+                     "up.date_inscription as passager_date_inscription, " +
+                     "c.marque_vehicule, c.modele_vehicule, c.immatriculation, " +
+                     "c.nombre_places_vehicule, c.note_moyenne as conducteur_note, " +
+                     "uc.nom as conducteur_nom, uc.prenom as conducteur_prenom, " +
+                     "uc.email as conducteur_email, uc.telephone as conducteur_telephone, " +
+                     "uc.date_inscription as conducteur_date_inscription " +
+                     "FROM reservation r " +
+                     "JOIN offre o ON r.id_offre = o.id_offre " +
+                     "JOIN passager p ON r.id_passager = p.id_passager " +
+                     "JOIN utilisateur up ON p.id_passager = up.id_utilisateur " +
+                     "JOIN conducteur c ON o.id_conducteur = c.id_conducteur " +
+                     "JOIN utilisateur uc ON c.id_conducteur = uc.id_utilisateur " +
+                     "ORDER BY r.date_reservation DESC";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            
+            while (rs.next()) {
+                reservations.add(mapResultSetToReservation(rs));
+            }
+        }
+        
+        System.out.println("DEBUG findAll() - Nombre de réservations trouvées: " + reservations.size());
+        return reservations;
     }
     
     @Override
@@ -289,7 +322,7 @@ public class ReservationDAOImpl implements ReservationDAO {
             reservation.setMessagePassager("");
         }
         
-        // Mapper le passager
+        
         Passager passager = new Passager();
         passager.setIdUtilisateur(rs.getLong("id_passager"));
         passager.setNom(rs.getString("passager_nom"));
@@ -304,7 +337,6 @@ public class ReservationDAOImpl implements ReservationDAO {
         }
         reservation.setPassager(passager);
 
-        // Mapper le conducteur
         Conducteur conducteur = new Conducteur();
         conducteur.setIdUtilisateur(rs.getLong("id_conducteur"));
         conducteur.setNom(rs.getString("conducteur_nom"));
@@ -322,7 +354,7 @@ public class ReservationDAOImpl implements ReservationDAO {
             conducteur.setNoteMoyenne(0.0);
         }
 
-        // Mapper l'offre
+       
         Offre offre = new Offre();
         offre.setIdOffre(rs.getLong("id_offre"));
         offre.setIdConducteur(rs.getLong("id_conducteur"));
@@ -341,7 +373,6 @@ public class ReservationDAOImpl implements ReservationDAO {
             offre.setCommentaire("");
         }
         
-        // Associer le conducteur à l'offre
         offre.setConducteur(conducteur);
         reservation.setOffre(offre);
 
@@ -380,7 +411,7 @@ public class ReservationDAOImpl implements ReservationDAO {
 
 	@Override
 	public List<Reservation> findByConducteurAndStatut(Long id, String string) {
-		// TODO Auto-generated method stub
+		
 		return null;
 	}
 }

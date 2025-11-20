@@ -18,7 +18,7 @@ public class Passager extends Utilisateur {
         this.noteMoyenne = 0.0;
     }
     
-    // ✅ Méthode getId() - retourne idUtilisateur si idPassager est null
+    
     public Long getId() {
         if (this.idPassager != null) {
             return this.idPassager;

@@ -11,7 +11,7 @@ public class Utilisateur {
     private String telephone;
     private Date dateInscription;
     private Boolean estActif;
-    private String photoProfil; // Nouveau champ
+    private String photoProfil; 
 
     // Constructeur par défaut
     public Utilisateur() {
@@ -35,7 +35,7 @@ public class Utilisateur {
     }
     
     public void mettreAJourProfil() {
-        // Logique de mise à jour du profil
+       
     }
     
     // Getters et Setters
@@ -110,7 +110,7 @@ public class Utilisateur {
         this.photoProfil = photoProfil;
     }
     
-    // Méthode utilitaire pour obtenir l'URL complète de la photo
+    
     public String getPhotoProfilUrl() {
         if (photoProfil == null || photoProfil.isEmpty()) {
             return "images/avatars/default-avatar.png";
@@ -118,7 +118,6 @@ public class Utilisateur {
         return photoProfil;
     }
     
-    // Méthode pour obtenir les initiales (fallback si pas de photo)
     public String getInitiales() {
         if (prenom != null && !prenom.isEmpty() && nom != null && !nom.isEmpty()) {
             return (prenom.substring(0, 1) + nom.substring(0, 1)).toUpperCase();

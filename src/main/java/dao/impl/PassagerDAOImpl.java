@@ -17,11 +17,11 @@ public class PassagerDAOImpl implements PassagerDAO {
     
     @Override
     public Long create(Passager passager) throws SQLException {
-        // D'abord créer l'utilisateur
+        
         Long userId = utilisateurDAO.create(passager);
         
         if (userId != null) {
-            // Ensuite créer le passager
+           
             String sql = "INSERT INTO passager (id_passager, note_moyenne) VALUES (?, ?)";
             
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -55,10 +55,9 @@ public class PassagerDAOImpl implements PassagerDAO {
     
     @Override
     public boolean update(Passager passager) throws SQLException {
-        // Mettre à jour l'utilisateur
-        utilisateurDAO.update(passager);
         
-        // Mettre à jour le passager
+        utilisateurDAO.update(passager);
+      
         String sql = "UPDATE passager SET note_moyenne = ? WHERE id_passager = ?";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -83,7 +82,7 @@ public class PassagerDAOImpl implements PassagerDAO {
     
     @Override
     public boolean delete(Long id) throws SQLException {
-        // La suppression en cascade s'occupe de supprimer le passager
+     
         return utilisateurDAO.delete(id);
     }
     

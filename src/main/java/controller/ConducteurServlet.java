@@ -75,7 +75,7 @@ public class ConducteurServlet extends HttpServlet {
                 boolean success = notificationDAO.marquerToutesCommeLues(userId);
                 
                 if (success) {
-                    // Optionnel : Ajouter un message de succès
+                    
                     session.setAttribute("success", "Toutes les notifications ont été marquées comme lues.");
                 }
             } catch (SQLException e) {
@@ -89,7 +89,7 @@ public class ConducteurServlet extends HttpServlet {
             return; // ARRÊTER l'exécution ici
         }
 
-        // 2. AIGUILLAGE PRINCIPAL (Si aucune action spéciale n'est demandée)
+        
         if (page == null || page.isEmpty()) {
             page = "dashboard";
         }
@@ -224,14 +224,6 @@ if ("EN_ATTENTE".equals(statut)) {
 int totalReservations = 0;
 int demandesEnAttente = 0;
 
-// Si vous avez déjà un ReservationDAO, décommentez ces lignes:
-// List<Reservation> reservations = ReservationDAO.findByConducteur(conducteurId);
-// totalReservations = reservations.size();
-// for (Reservation res : reservations) {
-//     if ("EN_ATTENTE".equals(res.getStatut())) {
-//         demandesEnAttente++;
-//     }
-// }
 
 // Passer les données à la JSP
 request.setAttribute("totalOffres", totalOffres);
@@ -334,7 +326,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                 request.setAttribute("nbTerminees", 0);
                 request.setAttribute("totalReservations", 0);
             } else {
-                // ✅ CORRECTION: Récupérer TOUTES les réservations pour le conducteur
+               
                 List<Reservation> reservations = reservationDAO.findByConducteur(conducteurId);
                 
                 System.out.println("=== DEBUG: Réservations trouvées pour conducteur " + conducteurId + ": " + reservations.size());
@@ -351,8 +343,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                     System.out.println("DEBUG: Réservation ID=" + res.getIdReservation() + 
                                      ", Statut=" + statut + 
                                      ", Passager=" + (res.getPassager() != null ? res.getPassager().getNom() : "null"));
-                    
-                    // ✅ CORRECTION: Normaliser le statut (trim + uppercase)
+
                     if (statut != null) {
                         statut = statut.trim().toUpperCase();
                         
@@ -426,7 +417,7 @@ request.setAttribute("totalEvaluations", 0);
 request.setAttribute("noteMoyenne", 0.0);
 request.setAttribute("distributionNotes", new int[6]);
 } else {
-// ✅ CORRECTION: Récupérer les évaluations où le conducteur est ÉVALUÉ (id_evalue)
+
 List<Evaluation> evaluations = evaluationDAO.findByEvalue(conducteurId);
 int totalEvaluations = evaluationDAO.countEvaluationsByEvalue(conducteurId);
 Double noteMoyenne = evaluationDAO.calculateNoteMoyenne(conducteurId);
@@ -878,8 +869,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
         conducteur.setTelephone(nouveauTelephone);
         
         try {
-            // 4. Persister en Base de Données
-            // NOTE: Votre DAO update() gère la mise à jour des champs Utilisateur et Conducteur
+           
             conducteurDAO.update(conducteur); 
             
             // 5. Mettre à jour la session avec le nouvel objet
@@ -932,7 +922,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
             response.sendRedirect("Conducteur?page=profil&error=true");
         }
     }
- // Dans ConducteurServlet - Ajouter cette méthode
+
     private void evaluerPassager(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException {
         
@@ -955,14 +945,14 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
             Long idPassager = Long.parseLong(idPassagerStr);
             Integer note = Integer.parseInt(noteStr);
             
-            // Vérifier que la note est valide
+            // Valider la note
             if (note < 1 || note > 5) {
                 session.setAttribute("error", "La note doit être entre 1 et 5");
                 response.sendRedirect("Conducteur?page=demandes");
                 return;
             }
             
-            // Récupérer la réservation pour avoir l'ID de l'offre
+            // Récupérer la réservation
             Reservation reservation = reservationDAO.findById(reservationId);
             if (reservation == null) {
                 session.setAttribute("error", "Réservation introuvable");
@@ -970,14 +960,15 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                 return;
             }
             
-            // Vérifier que le conducteur peut évaluer cette réservation
+            // Vérifier l'autorisation
             if (!reservation.getOffre().getIdConducteur().equals(conducteur.getId())) {
                 session.setAttribute("error", "Vous ne pouvez pas évaluer cette réservation");
                 response.sendRedirect("Conducteur?page=demandes");
                 return;
             }
             
-            // CORRECTION : Utiliser l'instance evaluationDAO correctement
+            String TYPE_EVAL = "CONDUCTEUR"; // Le conducteur évalue le passager
+            
             boolean evaluationExiste = evaluationDAO.existsForOffre(
                 reservation.getOffre().getIdOffre(), 
                 conducteur.getId(), 
@@ -990,7 +981,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
                 return;
             }
             
-            // Créer l'évaluation
+            // ✅ Créer l'évaluation avec type_evaluateur
             Evaluation evaluation = new Evaluation();
             evaluation.setIdOffre(reservation.getOffre().getIdOffre());
             evaluation.setIdEvaluateur(conducteur.getId());
@@ -998,6 +989,7 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
             evaluation.setNote(note);
             evaluation.setCommentaire(commentaire);
             evaluation.setDateEvaluation(new Date());
+            evaluation.setTypeEvaluateur(TYPE_EVAL); // ✅ AJOUTÉ
             
             Long evaluationId = evaluationDAO.create(evaluation);
             
@@ -1008,59 +1000,54 @@ request.getRequestDispatcher("dashboardConducteur.jsp").forward(request, respons
             }
             
         } catch (Exception e) {
+            System.err.println("ERREUR evaluerPassager: " + e.getMessage());
             e.printStackTrace();
-            session.setAttribute("error", "Erreur: " + e.getMessage());
+            session.setAttribute("error", "Erreur technique: " + e.getMessage());
         }
         
         response.sendRedirect("Conducteur?page=demandes");
     }
     
-    private void updateMotDePasse(HttpServletRequest request, HttpServletResponse response) 
+    private void updateMotDePasse(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        
+
         Conducteur conducteur = (Conducteur) request.getSession().getAttribute("utilisateur");
         if (conducteur == null) {
             response.sendRedirect("connexion.jsp");
             return;
         }
-        
+
         // Récupérer les mots de passe
         String ancienMotDePasseForm = request.getParameter("ancienMotDePasse");
         String nouveauMotDePasse = request.getParameter("nouveauMotDePasse");
         String confirmerMotDePasse = request.getParameter("confirmerMotDePasse");
 
-        // 1. Vérification côté serveur (Sécurité)
+        // 1. Vérification côté serveur
         if (!nouveauMotDePasse.equals(confirmerMotDePasse)) {
-            // Les mots de passe ne correspondent pas
             response.sendRedirect("Conducteur?page=profil&error=true&msg=Les mots de passe ne correspondent pas.");
             return;
         }
-        
-        // 2. Vérifier l'ancien mot de passe (vous aurez besoin d'une méthode de hachage/vérification)
-        // NOTE: C'est un point critique de sécurité. Assurez-vous d'utiliser un hachage (ex: BCrypt)
-        // Supposons ici que vous avez une méthode 'checkPassword' dans votre UtilisateurDAO.
-        // Pour l'exemple, nous allons utiliser le mot de passe clair si vous ne le hachez pas
+
+        // 2. Vérifier l'ancien mot de passe
         if (!conducteur.getMotDePasse().equals(ancienMotDePasseForm)) {
             response.sendRedirect("Conducteur?page=profil&error=true&msg=Ancien mot de passe incorrect.");
             return;
         }
-        
-        // 3. Mettre à jour l'objet et la BD
-        conducteur.setMotDePasse(nouveauMotDePasse); // Assurez-vous de HACHER ce mot de passe avant la BD!
-        
+
+        // 3. Mettre à jour le mot de passe
+        conducteur.setMotDePasse(nouveauMotDePasse); 
+
         try {
-            // Vous aurez besoin d'une méthode spécifique dans UtilisateurDAO pour mettre à jour UNIQUEMENT le mot de passe
-            // utilisateurDAO.updateMotDePasse(conducteur.getIdUtilisateur(), nouveauMotDePasse); 
-            conducteurDAO.update(conducteur); // Si update() gère aussi le mot de passe
-            
-            // Mettre à jour la session
-            request.getSession().setAttribute("utilisateur", conducteur); 
-            
-            // Redirection succès
+            conducteurDAO.update(conducteur);
+
+            // Mise à jour session
+            request.getSession().setAttribute("utilisateur", conducteur);
+
             response.sendRedirect("Conducteur?page=profil&success=true&msg=Mot de passe changé.");
-            
+
         } catch (SQLException e) {
-        	response.sendRedirect("Conducteur?page=profil&error=true&msg=Erreur de BD.");
-        }
-    }
+            response.sendRedirect("Conducteur?page=profil&error=true&msg=Erreur de BD.");
+        }
+    }
+
 }

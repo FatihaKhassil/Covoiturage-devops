@@ -59,7 +59,7 @@ public class Evaluation {
     public String getTypeEvaluateur() { return typeEvaluateur; }
     public void setTypeEvaluateur(String typeEvaluateur) { this.typeEvaluateur = typeEvaluateur; }
     
-    // ✅ AJOUTER TOUS LES NOUVEAUX GETTERS/SETTERS
+    
     public String getEvaluateurNom() { return evaluateurNom; }
     public void setEvaluateurNom(String evaluateurNom) { this.evaluateurNom = evaluateurNom; }
     
@@ -75,18 +75,18 @@ public class Evaluation {
     public Date getDateDepart() { return dateDepart; }
     public void setDateDepart(Date dateDepart) { this.dateDepart = dateDepart; }
     
-    // Méthodes utilitaires
+   
     public String getEvaluateurComplet() {
         if (evaluateurPrenom != null && evaluateurNom != null) {
             return evaluateurPrenom + " " + evaluateurNom;
         }
         return "Conducteur";
     }
-    
     public String getTrajetComplet() {
         if (villeDepart != null && villeArrivee != null) {
-            return villeDepart + " → " + villeArrivee;
+            return villeDepart + " -> " + villeArrivee; 
         }
         return "Trajet non spécifié";
-    }
-}
+    }
+
+    }

@@ -5,7 +5,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription - Covoiturage</title>
+    <title>Inscription - CIV</title>
     <style>
         * {
             margin: 0;
@@ -15,7 +15,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #f8fafc;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -24,41 +24,31 @@
         }
         
         .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            background: #e8ecf1;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             overflow: hidden;
             max-width: 600px;
             width: 100%;
-            animation: slideIn 0.5s ease;
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #e8ecf1;
+            color: #667eea;
             padding: 40px;
             text-align: center;
+            border-bottom: none;
         }
         
         .header h1 {
             font-size: 2.5em;
             margin-bottom: 10px;
+            font-weight: 700;
         }
         
         .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
+            font-size: 1em;
+            color: #64748b;
         }
         
         .form-content {
@@ -70,18 +60,12 @@
             margin-bottom: 25px;
             border-radius: 10px;
             font-weight: 500;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
         }
         
         .alert-error {
-            background-color: #fee;
-            color: #c33;
-            border: 2px solid #fcc;
+            background-color: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
         }
         
         .form-group {
@@ -92,12 +76,12 @@
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
-            color: #333;
+            color: #1e293b;
             font-size: 0.95em;
         }
         
         .required {
-            color: #e74c3c;
+            color: #dc2626;
             margin-left: 3px;
         }
         
@@ -109,11 +93,12 @@
         select {
             width: 100%;
             padding: 14px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid #e5e7eb;
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s ease;
             font-family: inherit;
+            background: white;
         }
         
         input:focus,
@@ -125,7 +110,6 @@
         
         select {
             cursor: pointer;
-            background-color: white;
         }
         
         .role-selector {
@@ -146,8 +130,8 @@
         
         .role-card {
             padding: 25px;
-            border: 3px solid #e0e0e0;
-            border-radius: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -156,35 +140,28 @@
         
         .role-card:hover {
             border-color: #667eea;
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
         
         .role-option input[type="radio"]:checked + .role-card {
             border-color: #667eea;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-        }
-        
-        .role-icon {
-            font-size: 3em;
-            margin-bottom: 10px;
+            background: #f0f4ff;
         }
         
         .role-title {
             font-weight: 700;
-            font-size: 1.2em;
-            color: #333;
+            font-size: 1.1em;
+            color: #1e293b;
             margin-bottom: 5px;
         }
         
         .role-description {
             font-size: 0.9em;
-            color: #666;
+            color: #64748b;
         }
         
         .specific-fields {
             display: none;
-            animation: fadeIn 0.3s ease;
         }
         
         .specific-fields.active {
@@ -192,12 +169,12 @@
         }
         
         .fields-header {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: #f8fafc;
             padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
             font-weight: 600;
-            color: #555;
+            color: #334155;
         }
         
         .btn {
@@ -205,39 +182,34 @@
             padding: 16px;
             border: none;
             border-radius: 10px;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
         
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
         
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35);
         }
         
-        .btn-primary:active {
+        .btn-primary:active:not(:disabled) {
             transform: translateY(0);
         }
         
         .btn-primary:disabled {
-            background: #ccc;
+            background: #cbd5e1;
             cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
         }
         
         .input-hint {
             font-size: 0.85em;
-            color: #666;
+            color: #64748b;
             margin-top: 5px;
         }
         
@@ -245,7 +217,7 @@
             text-align: center;
             margin-top: 25px;
             padding-top: 25px;
-            border-top: 1px solid #e0e0e0;
+            border-top: 1px solid #e5e7eb;
         }
         
         .link-container a {
@@ -278,14 +250,14 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚗 Inscription</h1>
-            <p>Rejoignez notre communauté de covoiturage</p>
+            <h1>Inscription</h1>
+            <p>Créez votre compte et rejoignez notre communauté</p>
         </div>
         
         <div class="form-content">
             <c:if test="${not empty erreur}">
                 <div class="alert alert-error">
-                    ✗ ${erreur}
+                    ${erreur}
                 </div>
             </c:if>
             
@@ -297,7 +269,6 @@
                         <div class="role-option">
                             <input type="radio" name="typeUtilisateur" id="conducteur" value="conducteur" required>
                             <label for="conducteur" class="role-card">
-                                <div class="role-icon">🚗</div>
                                 <div class="role-title">Conducteur</div>
                                 <div class="role-description">Je propose des trajets</div>
                             </label>
@@ -306,7 +277,6 @@
                         <div class="role-option">
                             <input type="radio" name="typeUtilisateur" id="passager" value="passager" required>
                             <label for="passager" class="role-card">
-                                <div class="role-icon">👤</div>
                                 <div class="role-title">Passager</div>
                                 <div class="role-description">Je recherche des trajets</div>
                             </label>
@@ -345,19 +315,19 @@
                 <!-- Champs spécifiques au conducteur -->
                 <div id="champtsConducteur" class="specific-fields">
                     <div class="fields-header">
-                        🚗 Informations sur votre véhicule
+                        Informations sur votre véhicule
                     </div>
                     
                     <div class="form-group">
                         <label for="marqueVehicule">Marque du véhicule<span class="required">*</span></label>
                         <input type="text" id="marqueVehicule" name="marqueVehicule" 
-                               placeholder="Ex: Peugeot, Renault...">
+                               placeholder="Ex: Peugeot, Renault">
                     </div>
                     
                     <div class="form-group">
                         <label for="modeleVehicule">Modèle du véhicule<span class="required">*</span></label>
                         <input type="text" id="modeleVehicule" name="modeleVehicule" 
-                               placeholder="Ex: 208, Clio...">
+                               placeholder="Ex: 208, Clio">
                     </div>
                     
                     <div class="form-group">
@@ -369,7 +339,7 @@
                     <div class="form-group">
                         <label for="nombrePlaces">Nombre de places disponibles<span class="required">*</span></label>
                         <input type="number" id="nombrePlaces" name="nombrePlaces" 
-                               min="1" max="8" value="3" placeholder="3">
+                               min="1" max="8" value="3">
                         <div class="input-hint">Nombre de places pour les passagers</div>
                     </div>
                 </div>
@@ -377,9 +347,9 @@
                 <!-- Champs spécifiques au passager -->
                 <div id="champsPassager" class="specific-fields">
                     <div class="fields-header">
-                        👤 En tant que passager
+                        En tant que passager
                     </div>
-                    <p style="color: #666; text-align: center; padding: 20px;">
+                    <p style="color: #64748b; text-align: center; padding: 20px; font-size: 0.95em;">
                         Vous pourrez rechercher et réserver des trajets proposés par nos conducteurs.
                     </p>
                 </div>
@@ -403,19 +373,16 @@
         const submitBtn = document.getElementById('submitBtn');
         const form = document.getElementById('inscriptionForm');
         
-        // Champs spécifiques au conducteur
         const marqueVehicule = document.getElementById('marqueVehicule');
         const modeleVehicule = document.getElementById('modeleVehicule');
         const immatriculation = document.getElementById('immatriculation');
         const nombrePlaces = document.getElementById('nombrePlaces');
         
-        // Fonction pour afficher les champs selon le rôle
         function updateFields() {
             if (conducteurRadio.checked) {
                 champtsConducteur.classList.add('active');
                 champsPassager.classList.remove('active');
                 
-                // Rendre les champs conducteur obligatoires
                 marqueVehicule.required = true;
                 modeleVehicule.required = true;
                 immatriculation.required = true;
@@ -427,7 +394,6 @@
                 champsPassager.classList.add('active');
                 champtsConducteur.classList.remove('active');
                 
-                // Rendre les champs conducteur non obligatoires
                 marqueVehicule.required = false;
                 modeleVehicule.required = false;
                 immatriculation.required = false;
@@ -437,15 +403,13 @@
             }
         }
         
-        // Événements sur les radios
         conducteurRadio.addEventListener('change', updateFields);
         passagerRadio.addEventListener('change', updateFields);
         
-        // Validation du formulaire
         form.addEventListener('submit', function(e) {
             if (!conducteurRadio.checked && !passagerRadio.checked) {
                 e.preventDefault();
-                alert('Veuillez sélectionner un type d\'utilisateur (Conducteur ou Passager)');
+                alert('Veuillez sélectionner un type d\'utilisateur');
                 return false;
             }
         });

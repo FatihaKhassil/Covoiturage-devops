@@ -9,26 +9,26 @@ public class Notification {
     private Date dateEnvoi;
     private Boolean estLue;
     
-    // Constructeur par défaut
+    
     public Notification() {
         this.dateEnvoi = new Date();
         this.estLue = false;
     }
     
-    // Constructeur avec paramètres
+    
     public Notification(Long idUtilisateur, String message) {
         this();
         this.idUtilisateur = idUtilisateur;
         this.message = message;
     }
     
-    // Méthodes métier
+    
     public void envoyer() {
-        // Logique d'envoi de notification
+        
         this.dateEnvoi = new Date();
     }
     
-    // Getters et Setters
+   
     public Long getIdNotification() {
         return idNotification;
     }

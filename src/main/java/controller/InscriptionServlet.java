@@ -4,6 +4,7 @@ import dao.impl.ConducteurDAOImpl;
 import dao.impl.PassagerDAOImpl;
 import models.Conducteur;
 import models.Passager;
+import models.Utilisateur;
 import Covoiturage.dao.factory.Factory;
 
 import javax.servlet.ServletException;
@@ -11,6 +12,8 @@ import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -67,32 +70,30 @@ public class InscriptionServlet extends HttpServlet {
     
     private void inscrireConducteur(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, SQLException {
-        
-        // Récupération des champs communs
+
+        // Récupération des champs
         String nom = request.getParameter("nom");
         String prenom = request.getParameter("prenom");
         String email = request.getParameter("email");
         String motDePasse = request.getParameter("motDePasse");
         String telephone = request.getParameter("telephone");
-        
-        // Récupération des champs spécifiques au conducteur
         String marqueVehicule = request.getParameter("marqueVehicule");
         String modeleVehicule = request.getParameter("modeleVehicule");
         String immatriculation = request.getParameter("immatriculation");
         int nombrePlaces = Integer.parseInt(request.getParameter("nombrePlaces"));
-        
+
         // Validation
         if (nom == null || nom.trim().isEmpty() || 
             prenom == null || prenom.trim().isEmpty() ||
             email == null || email.trim().isEmpty() ||
             motDePasse == null || motDePasse.trim().isEmpty()) {
-            
+
             request.setAttribute("erreur", "Tous les champs obligatoires doivent être remplis");
             request.getRequestDispatcher("/inscription.jsp").forward(request, response);
             return;
         }
-        
-        // Création de l'objet Conducteur
+
+        // Création du conducteur
         Conducteur conducteur = new Conducteur();
         conducteur.setNom(nom);
         conducteur.setPrenom(prenom);
@@ -106,43 +107,44 @@ public class InscriptionServlet extends HttpServlet {
         conducteur.setImmatriculation(immatriculation);
         conducteur.setNombrePlacesVehicule(nombrePlaces);
         conducteur.setNoteMoyenne(0.0);
-        
-        // Insertion dans la base de données
+
+        // Insertion dans la DB
         Long id = conducteurDAO.create(conducteur);
-        
+
         if (id != null) {
-            request.setAttribute("succes", "Inscription réussie! Bienvenue " + prenom + " " + nom);
-            request.setAttribute("typeInscrit", "conducteur");
-            request.setAttribute("userId", id);
-            request.getRequestDispatcher("/inscriptionSuccess.jsp").forward(request, response);
+            // Créer la session et rediriger vers le dashboard
+            HttpSession session = request.getSession();
+            conducteur.setIdConducteur(id);
+            session.setAttribute("utilisateur", conducteur);
+            session.setAttribute("typeUtilisateur", "conducteur");
+
+            response.sendRedirect("Conducteur?page=dashboard"); // comme dans la connexion
         } else {
             request.setAttribute("erreur", "Échec de l'inscription. Veuillez réessayer.");
             request.getRequestDispatcher("/inscription.jsp").forward(request, response);
         }
     }
+
     
     private void inscrirePassager(HttpServletRequest request, HttpServletResponse response) 
             throws ServletException, IOException, SQLException {
-        
-        // Récupération des champs communs
+
         String nom = request.getParameter("nom");
         String prenom = request.getParameter("prenom");
         String email = request.getParameter("email");
         String motDePasse = request.getParameter("motDePasse");
         String telephone = request.getParameter("telephone");
-        
-        // Validation
+
         if (nom == null || nom.trim().isEmpty() || 
             prenom == null || prenom.trim().isEmpty() ||
             email == null || email.trim().isEmpty() ||
             motDePasse == null || motDePasse.trim().isEmpty()) {
-            
+
             request.setAttribute("erreur", "Tous les champs obligatoires doivent être remplis");
             request.getRequestDispatcher("/inscription.jsp").forward(request, response);
             return;
         }
-        
-        // Création de l'objet Passager
+
         Passager passager = new Passager();
         passager.setNom(nom);
         passager.setPrenom(prenom);
@@ -152,20 +154,22 @@ public class InscriptionServlet extends HttpServlet {
         passager.setDateInscription(new Date());
         passager.setEstActif(true);
         passager.setNoteMoyenne(0.0);
-        
-        // Insertion dans la base de données
+
         Long id = passagerDAO.create(passager);
-        
+
         if (id != null) {
-            request.setAttribute("succes", "Inscription réussie! Bienvenue " + prenom + " " + nom);
-            request.setAttribute("typeInscrit", "passager");
-            request.setAttribute("userId", id);
-            request.getRequestDispatcher("/inscriptionSuccess.jsp").forward(request, response);
+            HttpSession session = request.getSession();
+            passager.setIdPassager(id);
+            session.setAttribute("utilisateur", passager);
+            session.setAttribute("typeUtilisateur", "passager");
+
+            response.sendRedirect("dashboardPassager.jsp"); // comme dans la connexion
         } else {
             request.setAttribute("erreur", "Échec de l'inscription. Veuillez réessayer.");
             request.getRequestDispatcher("/inscription.jsp").forward(request, response);
         }
     }
+
     
     @Override
     public void destroy() {

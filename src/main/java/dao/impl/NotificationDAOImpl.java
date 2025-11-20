@@ -1,4 +1,4 @@
-package dao.impl; // Assurez-vous que ce package correspond à votre structure
+package dao.impl; 
 
 import dao.NotificationDAO;
 import models.Notification;
@@ -11,24 +11,22 @@ import java.util.List;
 public class NotificationDAOImpl implements NotificationDAO {
     private Connection connection;
 
-    // Le constructeur doit prendre la connexion pour toutes les opérations
+    
     public NotificationDAOImpl(Connection connection) {
         this.connection = connection;
     }
 
-    // --- Méthode d'aide pour mapper le ResultSet à l'objet Notification ---
+    
     private Notification mapResultSetToNotification(ResultSet rs) throws SQLException {
         Notification notification = new Notification();
         notification.setIdNotification(rs.getLong("id_notification"));
-        // Utilisation de .getLong("id_utilisateur") pour le champ Long dans le modèle
+        
         notification.setIdUtilisateur(rs.getLong("id_utilisateur")); 
         notification.setMessage(rs.getString("message"));
         notification.setEstLue(rs.getBoolean("est_lue"));
         notification.setDateEnvoi(new Date(rs.getTimestamp("date_envoi").getTime()));
 
-        // Vous n'avez pas besoin de mapper l'Utilisateur complet si le modèle Notification
-        // n'utilise que l'ID (comme dans votre modèle fourni).
-
+        
         return notification;
     }
 
@@ -40,7 +38,7 @@ public class NotificationDAOImpl implements NotificationDAO {
         try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setLong(1, notification.getIdUtilisateur());
             stmt.setString(2, notification.getMessage());
-            // Utilisez java.sql.Timestamp pour DATE/DATETIME en SQL
+
             stmt.setTimestamp(3, new Timestamp(notification.getDateEnvoi().getTime())); 
             stmt.setBoolean(4, notification.getEstLue());
 
@@ -56,7 +54,7 @@ public class NotificationDAOImpl implements NotificationDAO {
                 }
             }
         }
-        return null; // ou lancer une exception si non créé
+        return null; 
     }
 
     @Override
@@ -146,12 +144,10 @@ public class NotificationDAOImpl implements NotificationDAO {
 
     @Override
     public int deleteOldNotifications(int jours) throws SQLException {
-        // Supprime les notifications plus anciennes que le nombre de jours spécifié
-        // NOTE: La fonction pour calculer la date varie selon la BDD (MySQL: DATE_SUB, PostgreSQL: INTERVAL)
+       
         String sql = "DELETE FROM notification WHERE date_envoi < DATE_SUB(NOW(), INTERVAL ? DAY)"; 
         
-        // Si vous utilisez PostgreSQL:
-        // String sql = "DELETE FROM notification WHERE date_envoi < (NOW() - INTERVAL '" + jours + " days')";
+        
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, jours);

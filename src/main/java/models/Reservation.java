@@ -132,6 +132,5 @@ public class Reservation {
     }
 
 	public void setEstEvalue(boolean dejaEvalue) {
-		// TODO Auto-generated method stub
 		
 	}}

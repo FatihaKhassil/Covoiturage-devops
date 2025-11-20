@@ -186,13 +186,12 @@ public class EvaluationDAOImpl implements EvaluationDAO {
         }
         return 0.0;
     }
-  
 
-    // ✅ Vérifier si une évaluation existe déjà pour une offre donnée
- // Dans EvaluationDAOImpl
     @Override
     public boolean existsForOffre(Long idOffre, Long idEvaluateur, Long idEvalue) {
-        String sql = "SELECT COUNT(*) FROM evaluation WHERE id_offre = ? AND id_evaluateur = ? AND id_evalue = ?";
+        // ✅ Vérifier sans type_evaluateur pour plus de simplicité
+        String sql = "SELECT COUNT(*) FROM evaluation " +
+                     "WHERE id_offre = ? AND id_evaluateur = ? AND id_evalue = ?";
         
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setLong(1, idOffre);
@@ -202,11 +201,12 @@ public class EvaluationDAOImpl implements EvaluationDAO {
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
                 int count = rs.getInt(1);
-                System.out.println("DEBUG existsForOffre - Offre: " + idOffre + ", Evaluateur: " + idEvaluateur + ", Evalue: " + idEvalue + ", Count: " + count);
+                System.out.println("DEBUG existsForOffre - Count: " + count + 
+                                 " (Offre:" + idOffre + ", Eval:" + idEvaluateur + ", Evalue:" + idEvalue + ")");
                 return count > 0;
             }
         } catch (SQLException e) {
-            System.err.println("ERREUR dans existsForOffre: " + e.getMessage());
+            System.err.println("❌ ERREUR existsForOffre: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
@@ -264,21 +264,43 @@ public class EvaluationDAOImpl implements EvaluationDAO {
         evaluation.setCommentaire(rs.getString("commentaire"));
         evaluation.setDateEvaluation(rs.getTimestamp("date_evaluation"));
         evaluation.setTypeEvaluateur(rs.getString("type_evaluateur"));
-        
-        // Informations supplémentaires pour l'affichage
-        evaluation.setEvaluateurNom(rs.getString("evaluateur_nom"));
-        evaluation.setEvaluateurPrenom(rs.getString("evaluateur_prenom"));
-        evaluation.setVilleDepart(rs.getString("ville_depart"));
-        evaluation.setVilleArrivee(rs.getString("ville_arrivee"));
-        evaluation.setDateDepart(rs.getDate("date_depart"));
+       
+        try {
+            evaluation.setEvaluateurNom(rs.getString("evaluateur_nom"));
+            evaluation.setEvaluateurPrenom(rs.getString("evaluateur_prenom"));
+            evaluation.setVilleDepart(rs.getString("ville_depart"));
+            evaluation.setVilleArrivee(rs.getString("ville_arrivee"));
+            evaluation.setDateDepart(rs.getDate("date_depart"));
+        } catch (SQLException e) {
+          
+        }
         
         return evaluation;
     }
 
-	@Override
-	public Evaluation findByOffreAndEvaluateur(Long idOffre, Long idUtilisateur) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    @Override
+    public Evaluation findByOffreAndEvaluateur(Long idOffre, Long idEvaluateur) {
+        String sql = "SELECT e.*, " +
+                    "u.nom as evaluateur_nom, u.prenom as evaluateur_prenom, " +
+                    "o.ville_depart, o.ville_arrivee, o.date_depart " +
+                    "FROM evaluation e " +
+                    "JOIN utilisateur u ON e.id_evaluateur = u.id_utilisateur " +
+                    "JOIN offre o ON e.id_offre = o.id_offre " +
+                    "WHERE e.id_offre = ? AND e.id_evaluateur = ?";
+        
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setLong(1, idOffre);
+            stmt.setLong(2, idEvaluateur);
+            
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return mapResultSetToEvaluation(rs);
+            }
+        } catch (SQLException e) {
+            System.err.println("❌ ERREUR findByOffreAndEvaluateur: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
 
 }

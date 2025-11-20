@@ -154,17 +154,19 @@
         color: white;
         font-weight: bold;
         font-size: 16px;
+        text-transform: uppercase;
     }
     
     .user-details h4 {
         font-size: 15px;
         color: #2c3e50;
-        margin-bottom: 3px;
+        margin: 0 0 3px 0;
     }
     
     .user-details p {
-        font-size: 13px;
-        color: #6c757d;
+        font-size: 12px;
+        color: #95a5a6;
+        margin: 0;
     }
     
     .status-badge {
@@ -193,11 +195,18 @@
     
     .rating .stars {
         color: #f39c12;
+        font-size: 16px;
     }
     
     .rating .score {
         font-weight: 600;
         color: #2c3e50;
+        font-size: 14px;
+    }
+    
+    .rating.no-rating .score {
+        color: #95a5a6;
+        font-style: italic;
     }
     
     .action-buttons {
@@ -235,16 +244,6 @@
         color: white;
     }
     
-    .btn-view {
-        background: #e7f3ff;
-        color: #0066cc;
-    }
-    
-    .btn-view:hover {
-        background: #0066cc;
-        color: white;
-    }
-    
     .empty-state {
         text-align: center;
         padding: 60px 20px;
@@ -255,6 +254,36 @@
         font-size: 64px;
         margin-bottom: 20px;
         opacity: 0.5;
+    }
+    
+    .contact-info p {
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .contact-info .email {
+        color: #2c3e50;
+        margin-bottom: 3px;
+    }
+    
+    .contact-info .phone {
+        color: #6c757d;
+        font-size: 13px;
+    }
+    
+    .vehicle-info p {
+        margin: 0;
+        font-size: 14px;
+    }
+    
+    .vehicle-info .model {
+        color: #2c3e50;
+        margin-bottom: 3px;
+    }
+    
+    .vehicle-info .details {
+        color: #6c757d;
+        font-size: 13px;
     }
 </style>
 
@@ -323,38 +352,42 @@
                 <tbody>
                     <% for (Conducteur conducteur : conducteurs) { 
                         String initiales = conducteur.getPrenom().substring(0,1) + conducteur.getNom().substring(0,1);
+                        double noteMoyenne = conducteur.getNoteMoyenne();
                     %>
                         <tr>
                             <td>
                                 <div class="user-info">
-                                    <div class="user-avatar"><%= initiales %></div>
+                                    <div class="user-avatar"><%= initiales.toUpperCase() %></div>
                                     <div class="user-details">
                                         <h4><%= conducteur.getPrenom() %> <%= conducteur.getNom() %></h4>
-                                        <p>ID: <%= conducteur.getIdUtilisateur() %></p>
+                                        <p>Membre depuis <%= dateFormat.format(conducteur.getDateInscription()) %></p>
                                     </div>
                                 </div>
                             </td>
                             <td>
-                                <p style="font-size: 14px; color: #2c3e50; margin-bottom: 3px;">
-                                    <%= conducteur.getEmail() %>
-                                </p>
-                                <p style="font-size: 13px; color: #6c757d;">
-                                    <%= conducteur.getTelephone() %>
-                                </p>
-                            </td>
-                            <td>
-                                <p style="font-size: 14px; color: #2c3e50; margin-bottom: 3px;">
-                                    <%= conducteur.getMarqueVehicule() %> <%= conducteur.getModeleVehicule() %>
-                                </p>
-                                <p style="font-size: 13px; color: #6c757d;">
-                                    <%= conducteur.getImmatriculation() %> | <%= conducteur.getNombrePlacesVehicule() %> places
-                                </p>
-                            </td>
-                            <td>
-                                <div class="rating">
-                                    <span class="stars">⭐</span>
-                                    <span class="score"><%= String.format("%.1f", conducteur.getNoteMoyenne()) %>/5</span>
+                                <div class="contact-info">
+                                    <p class="email"><%= conducteur.getEmail() %></p>
+                                    <p class="phone"><%= conducteur.getTelephone() %></p>
                                 </div>
+                            </td>
+                            <td>
+                                <div class="vehicle-info">
+                                    <p class="model"><%= conducteur.getMarqueVehicule() %> <%= conducteur.getModeleVehicule() %></p>
+                                    <p class="details"><%= conducteur.getImmatriculation() %> • <%= conducteur.getNombrePlacesVehicule() %> places</p>
+                                </div>
+                            </td>
+                            <td>
+                                <% if (noteMoyenne > 0) { %>
+                                    <div class="rating">
+                                        <span class="stars">⭐</span>
+                                        <span class="score"><%= String.format("%.1f", noteMoyenne) %>/5</span>
+                                    </div>
+                                <% } else { %>
+                                    <div class="rating no-rating">
+                                        <span class="stars">⭐</span>
+                                        <span class="score">Pas d'avis</span>
+                                    </div>
+                                <% } %>
                             </td>
                             <td><%= dateFormat.format(conducteur.getDateInscription()) %></td>
                             <td>
@@ -369,7 +402,7 @@
                                             <input type="hidden" name="action" value="bloquerUtilisateur">
                                             <input type="hidden" name="userId" value="<%= conducteur.getIdUtilisateur() %>">
                                             <button type="submit" class="btn-action btn-block" 
-                                                    onclick="return confirm('Bloquer cet utilisateur ?')">
+                                                    onclick="return confirm('Bloquer <%= conducteur.getPrenom() %> <%= conducteur.getNom() %> ?')">
                                                 🚫 Bloquer
                                             </button>
                                         </form>
@@ -413,30 +446,36 @@
                 <tbody>
                     <% for (Passager passager : passagers) { 
                         String initiales = passager.getPrenom().substring(0,1) + passager.getNom().substring(0,1);
+                        double noteMoyenne = passager.getNoteMoyenne();
                     %>
                         <tr>
                             <td>
                                 <div class="user-info">
-                                    <div class="user-avatar"><%= initiales %></div>
+                                    <div class="user-avatar"><%= initiales.toUpperCase() %></div>
                                     <div class="user-details">
                                         <h4><%= passager.getPrenom() %> <%= passager.getNom() %></h4>
-                                        <p>ID: <%= passager.getIdUtilisateur() %></p>
+                                        <p>Membre depuis <%= dateFormat.format(passager.getDateInscription()) %></p>
                                     </div>
                                 </div>
                             </td>
                             <td>
-                                <p style="font-size: 14px; color: #2c3e50; margin-bottom: 3px;">
-                                    <%= passager.getEmail() %>
-                                </p>
-                                <p style="font-size: 13px; color: #6c757d;">
-                                    <%= passager.getTelephone() %>
-                                </p>
+                                <div class="contact-info">
+                                    <p class="email"><%= passager.getEmail() %></p>
+                                    <p class="phone"><%= passager.getTelephone() %></p>
+                                </div>
                             </td>
                             <td>
-                                <div class="rating">
-                                    <span class="stars">⭐</span>
-                                    <span class="score"><%= String.format("%.1f", passager.getNoteMoyenne()) %>/5</span>
-                                </div>
+                                <% if (noteMoyenne > 0) { %>
+                                    <div class="rating">
+                                        <span class="stars">⭐</span>
+                                        <span class="score"><%= String.format("%.1f", noteMoyenne) %>/5</span>
+                                    </div>
+                                <% } else { %>
+                                    <div class="rating no-rating">
+                                        <span class="stars">⭐</span>
+                                        <span class="score">Pas d'avis</span>
+                                    </div>
+                                <% } %>
                             </td>
                             <td><%= dateFormat.format(passager.getDateInscription()) %></td>
                             <td>
@@ -451,7 +490,7 @@
                                             <input type="hidden" name="action" value="bloquerUtilisateur">
                                             <input type="hidden" name="userId" value="<%= passager.getIdUtilisateur() %>">
                                             <button type="submit" class="btn-action btn-block" 
-                                                    onclick="return confirm('Bloquer cet utilisateur ?')">
+                                                    onclick="return confirm('Bloquer <%= passager.getPrenom() %> <%= passager.getNom() %> ?')">
                                                 🚫 Bloquer
                                             </button>
                                         </form>
@@ -476,17 +515,14 @@
 
 <script>
     function showTab(tabName) {
-        // Masquer tous les onglets
         document.querySelectorAll('.tab-content').forEach(tab => {
             tab.classList.remove('active');
         });
         
-        // Désactiver tous les boutons
         document.querySelectorAll('.tab-button').forEach(btn => {
             btn.classList.remove('active');
         });
         
-        // Activer l'onglet sélectionné
         document.getElementById('tab-' + tabName).classList.add('active');
         event.target.classList.add('active');
     }

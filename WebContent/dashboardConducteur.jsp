@@ -31,77 +31,455 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Conducteur - Covoiturage</title>
+    <title>Dashboard Conducteur - CIV</title>
     <style>
-        /* (Votre CSS COMPLET ICI) */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f6fa; }
-        .container { display: flex; min-height: 100vh; }
-        /* Sidebar */
-        .sidebar { width: 260px; background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%); color: white; position: fixed; height: 100vh; overflow-y: auto; box-shadow: 2px 0 10px rgba(0,0,0,0.1); }
-        .sidebar-header { padding: 25px 20px; background: rgba(0,0,0,0.2); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .user-info { padding: 20px; background: rgba(0,0,0,0.15); border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .user-rating span { color: #f39c12; }
-        .nav-menu { padding: 15px 0; }
-        .nav-item { margin: 5px 15px; }
-        .nav-item a { display: flex; align-items: center; padding: 12px 15px; color: white; text-decoration: none; border-radius: 8px; transition: all 0.3s; }
-        .nav-item a:hover { background: rgba(255,255,255,0.1); transform: translateX(5px); }
-        .nav-item a.active { background: rgba(52, 152, 219, 0.3); border-left: 4px solid #3498db; }
-        .logout-section { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); }
-        .logout-btn { display: block; width: 100%; padding: 12px; background: #e74c3c; color: white; text-align: center; text-decoration: none; border-radius: 8px; transition: background 0.3s; }
-        .logout-btn:hover { background: #c0392b; }
+        /* RESET ET BASE */
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
         
-        /* Main Content & Top Bar */
-        .main-content { margin-left: 260px; flex: 1; padding: 30px; }
-        .top-bar { background: white; padding: 20px 30px; border-radius: 10px; margin-bottom: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
-        .top-bar h1 { font-size: 28px; color: #2c3e50; }
-        .breadcrumb { color: #7f8c8d; font-size: 14px; }
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background: #f8fafc; 
+            color: #334155;
+            line-height: 1.6;
+        }
         
-        /* Notifications CSS */
-        .notification-container { position: relative; display: inline-block; }
-        .notification-btn { background: none; border: none; cursor: pointer; padding: 5px; position: relative; }
-        .badge { position: absolute; top: 0; right: 0; background: #e74c3c; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: bold; display: none; }
-        .badge.active { display: block; }
-        .notification-dropdown { display: none; position: absolute; right: 0; top: 50px; width: 300px; max-height: 400px; overflow-y: auto; background: white; border: 1px solid #ccc; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); z-index: 1000; border-radius: 8px; }
-        .dropdown-item { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; display: flex; justify-content: space-between; align-items: center; text-decoration: none; color: inherit; }
-        .dropdown-item:last-child { border-bottom: none; }
-        .dropdown-item.unseen { background-color: #f7f7f7; font-weight: 600; }
-        .dropdown-item:hover { background-color: #f0f0f0; }
-        .dropdown-footer { padding: 10px; text-align: center; border-top: 1px solid #eee; }
+        .container { 
+            display: flex; 
+            min-height: 100vh; 
+        }
         
-        /* Stats Cards CSS */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: transform 0.3s; }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        .stat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .stat-card h3 { font-size: 14px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 1px; }
-        .stat-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-        .stat-card .value { font-size: 32px; font-weight: bold; color: #2c3e50; }
-        .stat-card .label { font-size: 13px; color: #95a5a6; margin-top: 5px; }
-        .blue { background: #e3f2fd; color: #2196f3; }
-        .green { background: #e8f5e9; color: #4caf50; }
-        .orange { background: #fff3e0; color: #ff9800; }
-        .purple { background: #f3e5f5; color: #9c27b0; }
-        .content-section { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        .section-header { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #ecf0f1; }
-        .section-header h2 { font-size: 22px; color: #2c3e50; }
+        /* SIDEBAR PROFESSIONNELLE */
+        .sidebar { 
+    width: 280px; 
+    background: #607D8B; /* couleur demandée */
+    color: #f1f5f9; 
+    position: fixed; 
+    height: 100vh; 
+    overflow-y: auto;
+    border-right: 1px solid #334155;
+}
+
+.sidebar-header {
+    height: 150px;                      /* taille idéale */
+    background: #607D8B;                /* même couleur que la sidebar */
+    border-bottom: 1px solid #334155;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    overflow: hidden;                   /* empêche tout dépassement */
+}
+
+
+
+        
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+        
+.logo-image {
+    height: 80%;       /* taille équilibrée */
+    width: auto;
+    max-width: 90%;    /* évite qu’il soit trop large */
+    object-fit: contain;
+}
+
+
+        
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .logo { 
+            font-size: 24px; 
+            font-weight: 700; 
+            color: #ffffff;
+            letter-spacing: 1px;
+        }
+        
+        .logo-subtitle { 
+            font-size: 11px; 
+            color: #94a3b8; 
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-top: 4px;
+        }
+        
+        .user-info { 
+            padding: 20px; 
+            background: #1e293b; 
+            border-bottom: 1px solid #334155; 
+        }
+        
+        .user-info h3 { 
+            font-size: 16px; 
+            font-weight: 500; 
+            margin-bottom: 4px; 
+            color: #f1f5f9;
+        }
+        
+        .user-info p { 
+            font-size: 14px; 
+            color: #94a3b8; 
+            margin-bottom: 8px;
+        }
+        
+        .user-rating span { 
+            color: #f59e0b; 
+            font-weight: 500;
+        }
+        
+        .nav-menu { 
+            padding: 16px 0; 
+        }
+        
+        .nav-item { 
+            margin: 4px 16px; 
+        }
+        
+        .nav-item a { 
+            display: flex; 
+            align-items: center; 
+            padding: 12px 16px; 
+            color: #cbd5e1; 
+            text-decoration: none; 
+            border-radius: 6px; 
+            transition: all 0.2s ease; 
+            font-size: 14px;
+            font-weight: 400;
+        }
+        
+        .nav-item a:hover { 
+            background: #334155; 
+            color: #f1f5f9;
+        }
+        
+        .nav-item a.active {
+    background: #4b5563;  /* même couleur que déconnexion */
+    color: white;
+    font-weight: 500;
+}
+
+        
+        .logout-section { 
+            padding: 20px; 
+            border-top: 1px solid #334155; 
+            margin-top: auto;
+        }
+        
+        .logout-btn { 
+            display: block; 
+            width: 100%; 
+            padding: 12px; 
+            background: #475569; 
+            color: white; 
+            text-align: center; 
+            text-decoration: none; 
+            border-radius: 6px; 
+            transition: background 0.2s; 
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+    .logout-btn:hover {
+    background: #374151 !important;
+}
+
+        
+        /* MAIN CONTENT */
+        .main-content { 
+            margin-left: 280px; 
+            flex: 1; 
+            padding: 32px; 
+        }
+        
+        .top-bar { 
+            background: white; 
+            padding: 24px 32px; 
+            border-radius: 8px; 
+            margin-bottom: 32px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border: 1px solid #e2e8f0;
+        }
+        
+        .top-bar h1 { 
+            font-size: 24px; 
+            color: #1e293b; 
+            font-weight: 600;
+        }
+        
+        .breadcrumb { 
+            color: #64748b; 
+            font-size: 14px; 
+            margin-top: 4px;
+        }
+        
+        /* STATS CARDS PROFESSIONNELLES */
+        .stats-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
+            gap: 20px; 
+            margin-bottom: 32px; 
+        }
+        
+        .stat-card { 
+            background: white; 
+            padding: 24px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            transition: transform 0.2s; 
+            border: 1px solid #e2e8f0;
+        }
+        
+        .stat-card:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        
+        .stat-card-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 16px; 
+        }
+        
+        .stat-card h3 { 
+            font-size: 13px; 
+            color: #64748b; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            font-weight: 500;
+        }
+        
+        .stat-icon { 
+            width: 48px; 
+            height: 48px; 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 20px; 
+        }
+        
+        .stat-card .value { 
+            font-size: 28px; 
+            font-weight: 700; 
+            color: #1e293b; 
+        }
+        
+        .stat-card .label { 
+            font-size: 13px; 
+            color: #64748b; 
+            margin-top: 4px; 
+        }
+        
+        .blue { background: #dbeafe; color: #1d4ed8; }
+        .green { background: #dcfce7; color: #15803d; }
+        .orange { background: #ffedd5; color: #c2410c; }
+        .purple { background: #f3e8ff; color: #7e22ce; }
+        
+        /* CONTENT SECTIONS */
+        .content-section { 
+            background: white; 
+            padding: 24px; 
+            border-radius: 8px; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1); 
+            border: 1px solid #e2e8f0;
+        }
+        
+        .section-header { 
+            margin-bottom: 20px; 
+            padding-bottom: 16px; 
+            border-bottom: 1px solid #e2e8f0; 
+        }
+        
+        .section-header h2 { 
+            font-size: 18px; 
+            color: #1e293b; 
+            font-weight: 600;
+        }
+        
+        /* NOTIFICATIONS PROFESSIONNELLES */
+        .notification-container { 
+            position: relative; 
+            display: inline-block; 
+        }
+        
+        .notification-btn { 
+            background: #f8fafc; 
+            border: 1px solid #e2e8f0; 
+            cursor: pointer; 
+            padding: 8px 12px; 
+            border-radius: 6px; 
+            position: relative; 
+            transition: background 0.2s;
+        }
+        
+        .notification-btn:hover {
+            background: #f1f5f9;
+        }
+        
+        .badge { 
+            position: absolute; 
+            top: -4px; 
+            right: -4px; 
+            background: #dc2626; 
+            color: white; 
+            border-radius: 50%; 
+            padding: 2px 6px; 
+            font-size: 11px; 
+            font-weight: 600; 
+            display: none; 
+            min-width: 18px;
+            text-align: center;
+        }
+        
+        .badge.active { 
+            display: block; 
+        }
+        
+        .notification-dropdown { 
+            display: none; 
+            position: absolute; 
+            right: 0; 
+            top: 48px; 
+            width: 320px; 
+            max-height: 400px; 
+            overflow-y: auto; 
+            background: white; 
+            border: 1px solid #e2e8f0; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); 
+            z-index: 1000; 
+            border-radius: 8px; 
+        }
+        
+        .dropdown-item { 
+            padding: 12px 16px; 
+            border-bottom: 1px solid #f1f5f9; 
+            font-size: 14px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            text-decoration: none; 
+            color: inherit; 
+            transition: background 0.2s;
+        }
+        
+        .dropdown-item:last-child { 
+            border-bottom: none; 
+        }
+        
+        .dropdown-item.unseen { 
+            background-color: #f0f9ff; 
+            font-weight: 500; 
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .dropdown-item:hover { 
+            background-color: #f8fafc; 
+        }
+        
+        .dropdown-footer { 
+            padding: 12px 16px; 
+            text-align: center; 
+            border-top: 1px solid #e2e8f0; 
+            background: #f8fafc;
+        }
+        
+        .dropdown-footer a {
+            color: #3b82f6;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        /* ACTIVITY LIST */
+        .activity-list { 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
+        
+        .activity-item { 
+            display: flex; 
+            align-items: center; 
+            padding: 16px; 
+            background: #f8fafc; 
+            border-radius: 6px; 
+            border-left: 4px solid #3b82f6; 
+            transition: all 0.2s; 
+        }
+        
+        .activity-item:hover { 
+            background: #f1f5f9; 
+            transform: translateX(2px); 
+        }
+        
+        .activity-icon { 
+            width: 44px; 
+            height: 44px; 
+            background: white; 
+            border-radius: 8px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 18px; 
+            margin-right: 16px; 
+            border: 1px solid #e2e8f0;
+        }
+        
+        .activity-details { 
+            flex: 1; 
+        }
+        
+        .activity-details h4 { 
+            font-size: 15px; 
+            color: #1e293b; 
+            margin-bottom: 4px; 
+            font-weight: 500;
+        }
+        
+        .activity-details p { 
+            font-size: 13px; 
+            color: #64748b; 
+        }
+        
+        .activity-status { 
+            padding: 4px 12px; 
+            border-radius: 12px; 
+            font-size: 11px; 
+            font-weight: 600; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-active { background: #dcfce7; color: #15803d; }
+        .status-full { background: #fef9c3; color: #a16207; }
+        .status-completed { background: #dbeafe; color: #1e40af; }
+        .status-cancelled { background: #fee2e2; color: #b91c1c; }
     </style>
 </head>
 <body>
     <div class="container">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>🚗 Covoiturage</h2>
-                <p>Espace Conducteur</p>
-            </div>
-            
-            <div class="user-info">
-                <h3><%= conducteur.getPrenom() %> <%= conducteur.getNom() %></h3>
-                <p><%= conducteur.getEmail() %></p>
-                <div class="user-rating">
-                    ⭐ <span><%= String.format("%.1f", conducteur.getNoteMoyenne()) %>/5</span>
+                <div class="logo-container">
+                    <img src="includes/assets/logo.png" alt="CIV Logo" class="logo-image">
                 </div>
             </div>
+            
             
             <nav class="nav-menu">
                 <div class="nav-item">
@@ -249,24 +627,9 @@
                         <p style="color: #7f8c8d; text-align: center; padding: 40px 0;">
                             Bienvenue sur votre tableau de bord, <%= conducteur.getPrenom() %>! 
                             Vous n'avez pas encore publié d'offres. 
-                            <a href="Conducteur?page=publier" style="color: #667eea; text-decoration: none; font-weight: 600;">Publiez votre première offre</a>
+                            <a href="Conducteur?page=publier" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Publiez votre première offre</a>
                         </p>
                     <% } else { %>
-                        <style>
-                            .activity-list { display: flex; flex-direction: column; gap: 15px; }
-                            .activity-item { display: flex; align-items: center; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea; transition: all 0.3s; }
-                            .activity-item:hover { background: #e9ecef; transform: translateX(5px); }
-                            .activity-icon { width: 50px; height: 50px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-right: 15px; }
-                            .activity-details { flex: 1; }
-                            .activity-details h4 { font-size: 16px; color: #2c3e50; margin-bottom: 5px; }
-                            .activity-details p { font-size: 14px; color: #7f8c8d; }
-                            .activity-status { padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: 600; }
-                            .status-active { background: #d4edda; color: #155724; }
-                            .status-full { background: #fff3cd; color: #856404; }
-                            .status-completed { background: #d1ecf1; color: #0c5460; }
-                            .status-cancelled { background: #f8d7da; color: #721c24; }
-                        </style>
-                        
                         <div class="activity-list">
                             <% for (Offre offre : dernieresOffres) { 
                                 String statut = offre.getStatut();
@@ -305,7 +668,7 @@
                         </div>
                         
                         <div style="text-align: center; margin-top: 20px;">
-                            <a href="Conducteur?page=offres" style="color: #667eea; text-decoration: none; font-weight: 600;">
+                            <a href="Conducteur?page=offres" style="color: #3b82f6; text-decoration: none; font-weight: 600;">
                                 Voir toutes mes offres →
                             </a>
                         </div>
@@ -341,7 +704,7 @@
     <script>
         // Récupération de l'ID utilisateur
         const currentUserId = "<%= conducteur.getIdConducteur() %>";
-        const appName = "Covoiturage"; 
+        const appName = "CIV"; 
         const isDashboard = ("<%= currentPage %>" === "dashboard"); // Condition côté client
 
         if (currentUserId && currentUserId !== "null" && isDashboard) { // WebSocket uniquement si Dashboard
@@ -367,7 +730,7 @@
                     badge.textContent = count + 1;
                     badge.classList.add('active');
 
-                    alert(`🔔 Nouvelle alerte: ${notification.message}`); 
+                    alert(🔔 Nouvelle alerte: ${notification.message}); 
                     
                     // 2. Mettre à jour le menu déroulant
                     const now = new Date();

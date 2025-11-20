@@ -41,13 +41,13 @@ public class Conducteur extends Utilisateur {
         this.noteMoyenne = noteMoyenne != null ? noteMoyenne : 0.0;
     }
     
-    // ✅ Méthode getId() corrigée - retourne idUtilisateur si idConducteur est null
+    
     public Long getId() {
-        // Si idConducteur est défini, le retourner
+        
         if (this.idConducteur != null) {
             return this.idConducteur;
         }
-        // Sinon, retourner idUtilisateur (hérité de Utilisateur)
+       
         return this.getIdUtilisateur();
     }
     
@@ -82,7 +82,7 @@ public class Conducteur extends Utilisateur {
     
     public void setIdConducteur(Long idConducteur) {
         this.idConducteur = idConducteur;
-        // Synchroniser avec idUtilisateur
+        
         if (idConducteur != null) {
             this.setIdUtilisateur(idConducteur);
         }
