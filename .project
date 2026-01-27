@@ -28,16 +28,4 @@
 		<nature>org.eclipse.jdt.core.javanature</nature>
 		<nature>org.eclipse.wst.jsdt.core.jsNature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>WebContent/includes/assets/img_con.png</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/img_co.png</locationURI>
-		</link>
-		<link>
-			<name>WebContent/includes/assets/logo.png</name>
-			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/logo-removebg-preview.png</locationURI>
-		</link>
-	</linkedResources>
 </projectDescription>
