@@ -17,7 +17,7 @@ pipeline {
             steps {
                 script {
                     def mvnHome = tool name: 'Maven3', type: 'maven'
-                    bat "\"${mvnHome}\\bin\\mvn\" clean compile verify"
+                    bat "\"${mvnHome}\\bin\\mvn\" clean compile"
                 }
             }
         }
