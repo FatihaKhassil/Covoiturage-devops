@@ -1,24 +1,24 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven-3.6'
-        jdk 'JDK-11'
+    triggers {
+        githubPush()
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Clone') {
             steps {
-                echo 'Clonage du projet...'
-                checkout scm
+                git branch: 'develop', url: 'https://github.com/FatihaKhassil/Covoiturage-devops.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Compilation...'
-                bat 'mvn clean compile'
+                script {
+                    def mvnHome = tool name: 'Maven3', type: 'maven'
+                    bat "\"${mvnHome}\\bin\\mvn\" clean compile verify"
+                }
             }
         }
 
