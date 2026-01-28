@@ -147,7 +147,7 @@ public class AdminServlet extends HttpServlet {
             Administrateur admin) throws ServletException, IOException, SQLException {
         
         try {
-            // Consulter les statistiques globales
+            // Consulter les statistiques
             List<Utilisateur> allUsers = utilisateurDAO.findAll();
             List<Conducteur> allConducteurs = conducteurDAO.findAll();
             List<Passager> allPassagers = passagerDAO.findAll();
