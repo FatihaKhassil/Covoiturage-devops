@@ -38,23 +38,23 @@ pipeline {
             }
         }
 // just test
-        stage('SonarQube Analysis') {
-          steps {
-            script {
-               def mvnHome = tool name: 'Maven3', type: 'maven'
+stage('SonarQube Analysis') {
+    steps {
+        script {
+            def mvnHome = tool name: 'Maven3', type: 'maven'
 
-               withSonarQubeEnv('SonarQube Local') {
-                 bat """
-                 \"${mvnHome}\\bin\\mvn\" sonar:sonar ^
+            withSonarQubeEnv('SonarQube Local') {
+                bat """
+                \"${mvnHome}\\bin\\mvn\" sonar:sonar ^
                 -Dsonar.projectKey=Covoiturage-devops ^
                 -Dsonar.projectName="Covoiturage DevOps" ^
-                -Dsonar.host.url=http://localhost:9000 ^
                 -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
                 """
-                 }
-              }
-          }
-      }
+            }
+        }
+    }
+}
+
 
 
         stage('Package') {
