@@ -17,15 +17,18 @@ pipeline {
             steps {
                 script {
                     def mvnHome = tool name: 'Maven3', type: 'maven'
-                    bat "\"${mvnHome}\\bin\\mvn\" clean compile verify"
+                    bat "\"${mvnHome}\\bin\\mvn\" clean compile"
                 }
             }
         }
 
         stage('Tests') {
             steps {
-                echo 'Tests unitaires...'
-                bat 'mvn test'
+                script {
+                    def mvnHome = tool name: 'Maven3', type: 'maven'
+                    echo 'Tests unitaires...'
+                    bat "\"${mvnHome}\\bin\\mvn\" test"
+                }
             }
             post {
                 always {
@@ -36,8 +39,11 @@ pipeline {
 
         stage('Package') {
             steps {
-                echo 'Création du WAR...'
-                bat 'mvn package -DskipTests'
+                script {
+                    def mvnHome = tool name: 'Maven3', type: 'maven'
+                    echo 'Création du WAR...'
+                    bat "\"${mvnHome}\\bin\\mvn\" package -DskipTests"
+                }
             }
             post {
                 success {
