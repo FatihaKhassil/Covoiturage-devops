@@ -37,7 +37,12 @@ pipeline {
                 }
             }
         }
-// just test
+stage('Check JaCoCo') {        // 👉 très important pour debug
+    steps {
+        bat "dir target\\site\\jacoco"
+    }
+}
+
 stage('SonarQube Analysis') {
     environment {
         SONAR_TOKEN = credentials('sonar-token-id')
@@ -48,7 +53,7 @@ stage('SonarQube Analysis') {
             bat """
             \"${mvnHome}\\bin\\mvn\" sonar:sonar ^
             -Dsonar.projectKey=Covoiturage-devops ^
-            -Dsonar.projectName="Covoiturage DevOps" ^
+            -Dsonar.projectName=\"Covoiturage DevOps\" ^
             -Dsonar.host.url=http://localhost:9000 ^
             -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
             -Dsonar.token=%SONAR_TOKEN%
@@ -56,7 +61,6 @@ stage('SonarQube Analysis') {
         }
     }
 }
-
 
 
 
