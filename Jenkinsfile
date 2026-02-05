@@ -14,21 +14,38 @@ pipeline {
             }
         }
 
-        // 👉 IMPORTANT : UN SEUL BUILD QUI FAIT TOUT
-        stage('Build + Tests + Coverage') {
+        stage('Build') {
             steps {
                 script {
                     def mvnHome = tool name: 'Maven3', type: 'maven'
-                    echo 'Build + Tests + JaCoCo...'
-                    bat "\"${mvnHome}\\bin\\mvn\" clean verify site"
+                    echo 'Compilation du projet...'
+                    bat "\"${mvnHome}\\bin\\mvn\" clean compile"
                 }
             }
         }
 
-        // 🔍 DEBUG : vérifier que Jenkins a bien généré JaCoCo
-        stage('Check JaCoCo') {
+        stage('Tests Unitaires') {
             steps {
-                bat "dir target\\site\\jacoco"
+                script {
+                    def mvnHome = tool name: 'Maven3', type: 'maven'
+                    echo 'Exécution des tests unitaires...'
+                    bat "\"${mvnHome}\\bin\\mvn\" test"
+                }
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('Coverage JaCoCo') {
+            steps {
+                script {
+                    def mvnHome = tool name: 'Maven3', type: 'maven'
+                    echo 'Génération du rapport JaCoCo...'
+                    bat "\"${mvnHome}\\bin\\mvn\" jacoco:report"
+                }
             }
         }
 
