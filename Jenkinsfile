@@ -14,55 +14,42 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        // 👉 IMPORTANT : UN SEUL BUILD QUI FAIT TOUT
+        stage('Build + Tests + Coverage') {
             steps {
                 script {
                     def mvnHome = tool name: 'Maven3', type: 'maven'
-                    bat "\"${mvnHome}\\bin\\mvn\" clean compile"
+                    echo 'Build + Tests + JaCoCo...'
+                    bat "\"${mvnHome}\\bin\\mvn\" clean verify site"
                 }
             }
         }
 
-        stage('Tests') {
+        // 🔍 DEBUG : vérifier que Jenkins a bien généré JaCoCo
+        stage('Check JaCoCo') {
+            steps {
+                bat "dir target\\site\\jacoco"
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            environment {
+                SONAR_TOKEN = credentials('sonar-token-id')
+            }
             steps {
                 script {
                     def mvnHome = tool name: 'Maven3', type: 'maven'
-                    echo 'Tests unitaires...'
-                    bat "\"${mvnHome}\\bin\\mvn\" test"
-                }
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/*.xml'
+                    bat """
+                    \"${mvnHome}\\bin\\mvn\" sonar:sonar ^
+                    -Dsonar.projectKey=Covoiturage-devops ^
+                    -Dsonar.projectName=\"Covoiturage DevOps\" ^
+                    -Dsonar.host.url=http://localhost:9000 ^
+                    -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
+                    -Dsonar.token=%SONAR_TOKEN%
+                    """
                 }
             }
         }
-stage('Check JaCoCo') {        // 👉 très important pour debug
-    steps {
-        bat "dir target\\site\\jacoco"
-    }
-}
-
-stage('SonarQube Analysis') {
-    environment {
-        SONAR_TOKEN = credentials('sonar-token-id')
-    }
-    steps {
-        script {
-            def mvnHome = tool name: 'Maven3', type: 'maven'
-            bat """
-            \"${mvnHome}\\bin\\mvn\" sonar:sonar ^
-            -Dsonar.projectKey=Covoiturage-devops ^
-            -Dsonar.projectName=\"Covoiturage DevOps\" ^
-            -Dsonar.host.url=http://localhost:9000 ^
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml ^
-            -Dsonar.token=%SONAR_TOKEN%
-            """
-        }
-    }
-}
-
-
 
         stage('Package') {
             steps {
